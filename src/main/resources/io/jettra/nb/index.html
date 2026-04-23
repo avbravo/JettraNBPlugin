@@ -51,11 +51,17 @@
         .inspector-label { display: block; font-size: 11px; color: #9aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .inspector-input { width: 100%; background: #0a0f15; border: 1px solid #334155; color: #fff; padding: 8px; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;}
         .inspector-input:focus { border-color: var(--jettra-accent); box-shadow: 0 0 0 1px rgba(0,255,255,0.2); }
-        .icon-preset { transition: all 0.2s; border-radius: 4px; }
+        .icon-preset { transition: all 0.2s; border-radius: 4px; font-size: 18px; line-height: 1.5; }
         .icon-preset:hover { background: rgba(0,255,255,0.1); transform: scale(1.2); border-color: var(--jettra-accent) !important; }
+        .project-banner { background: #21262d; border-bottom: 1px solid var(--jettra-border); padding: 5px 15px; font-size: 11px; display: flex; align-items: center; gap: 10px; color: #8b949e; }
+        .project-banner b { color: var(--jettra-accent); }
     </style>
 </head>
 <body>
+    <div class="project-banner" id="project-banner">
+        <span>Current Project: <b id="project-name">None (Select from Projects tab)</b></span>
+        <span id="project-path" style="opacity: 0.5; font-size: 10px;"></span>
+    </div>
     <div class="sidebar">
         <div style="padding: 10px; border-bottom: 1px solid var(--jettra-border);">
             <button class="j-btn" style="width: 100%;" onclick="requestWorkspaceFiles()">Load Project Files</button>
@@ -88,9 +94,12 @@
         </div>
         
         <div class="code-area">
-            <div style="padding: 5px 10px; background: rgba(0,0,0,0.5); font-size: 11px; font-weight: bold; border-bottom: 1px solid var(--jettra-border); display: flex; justify-content: space-between;">
+            <div style="padding: 5px 10px; background: rgba(0,0,0,0.5); font-size: 11px; font-weight: bold; border-bottom: 1px solid var(--jettra-border); display: flex; justify-content: space-between; align-items: center;">
                 <span>Java Source Code</span>
-                <button class="j-btn" style="padding: 2px 8px; font-size: 10px;" onclick="syncCodeToCanvas()">Sync to Canvas</button>
+                <div style="display:flex; gap:5px;">
+                    <button class="j-btn" style="padding: 2px 8px; font-size: 10px; background: #21262d;" onclick="syncCodeToCanvas()">Sync to Canvas</button>
+                    <button class="j-btn j-btn-primary" style="padding: 2px 8px; font-size: 10px;" onclick="saveGeneratedCode()">Save to File 💾</button>
+                </div>
             </div>
             <textarea id="code-display" class="code-display" readonly>// Generated code will appear here...</textarea>
         </div>
@@ -274,18 +283,41 @@
             document.getElementById('property-inspector').style.display = 'flex';
         }
 
+        function setProjectInfo(name, path) {
+            document.getElementById('project-name').innerText = name;
+            document.getElementById('project-path').innerText = path;
+            if (window.javaConnector) {
+                window.javaConnector.showInfo("Connected to project: " + name);
+            }
+        }
+
+        function saveGeneratedCode() {
+            const code = document.getElementById('code-display').value;
+            if (code.startsWith('//')) {
+                if (window.javaConnector) window.javaConnector.showError("No code generated to save.");
+                return;
+            }
+            // Extract class name
+            const match = code.match(/public class (\w+)/);
+            const className = match ? match[1] : "GeneratedPage";
+            
+            if (window.javaConnector) {
+                window.javaConnector.saveCode(className, code);
+            }
+        }
+
         function updateInspector() {
             if (!selectedElement) return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             const type = selectedElement.getAttribute('data-type');
             const propList = document.getElementById('inspector-properties');
             
-            let html = `<div style="font-size:11px; color:#aaa; margin-bottom:15px;">Component: <b style="color:#fff">${type}</b></div>`;
+            let html = `<div style="font-size:11px; color:#aaa; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:5px;">Component: <b style="color:var(--jettra-accent)">${type}</b></div>`;
 
-            // Active View Model Selection
+            // Model Binding
             html += `
                 <div class="inspector-row">
-                    <span class="inspector-label">Bind to Model</span>
+                    <span class="inspector-label">Binding (Model Field)</span>
                     <select class="inspector-input" onchange="updateProp('binding', this.value)">
                         <option value="">No Binding</option>
                         ${modelFields.map(f => `<option value="${f.name}" ${props.binding === f.name ? 'selected' : ''}>${f.name}</option>`).join('')}
@@ -295,12 +327,12 @@
 
             // Basic Properties
             html += createInspectorRow('ID', 'id', props.id || '', 'text');
-            html += createInspectorRow('Text/Label', 'text', props.text || '', 'text');
+            html += createInspectorRow('Text / Title', 'text', props.text || '', 'text');
 
-            // Component Specific Properties
+            // Component Specific
             if (type === 'SelectOne' || type === 'SelectMany') {
                 html += createInspectorRow('Options (val:lab,...)', 'options', props.options || '1:Option 1', 'text');
-                html += createInspectorRow('Default Value', 'default', props.default || '', 'text');
+                html += createInspectorRow('Default', 'default', props.default || '', 'text');
             }
 
             const iconComponents = ['Button', 'SelectOneIcon', 'Menu', 'MenuItem', 'Avatar', 'Alert', 'Notification', 'Link', 'Tab', 'TreeItem'];
@@ -321,45 +353,44 @@
             if (type === 'Button') {
                 html += `
                     <div class="inspector-row">
-                        <span class="inspector-label">Button Style</span>
+                        <span class="inspector-label">Style</span>
                         <select class="inspector-input" onchange="updateProp('btnStyle', this.value)">
                             <option value="PRIMARY" ${props.btnStyle === 'PRIMARY' ? 'selected' : ''}>PRIMARY</option>
                             <option value="SECONDARY" ${props.btnStyle === 'SECONDARY' ? 'selected' : ''}>SECONDARY</option>
-                            <option value="HELP" ${props.btnStyle === 'HELP' ? 'selected' : ''}>HELP</option>
                             <option value="DANGER" ${props.btnStyle === 'DANGER' ? 'selected' : ''}>DANGER</option>
-                            <option value="INFO" ${props.btnStyle === 'INFO' ? 'selected' : ''}>INFO</option>
+                            <option value="SUCCESS" ${props.btnStyle === 'SUCCESS' ? 'selected' : ''}>SUCCESS</option>
                         </select>
                     </div>
                 `;
             }
 
-            if (type === 'Panel' || type === 'Grid' || type === 'Board') {
-                html += createInspectorRow('Columns', 'columns', props.columns || 2, 'number');
-            }
-
-            if (type === 'Spinner') {
-                html += createInspectorRow('Min', 'min', props.min || 0, 'number');
-                html += createInspectorRow('Max', 'max', props.max || 100, 'number');
-                html += createInspectorRow('Step', 'step', props.step || 1, 'number');
-            }
-
-            if (type === 'RadioGroupButton' || type === 'CheckBoxGroup') {
-                html += createInspectorRow('Group Name', 'name', props.name || 'group1', 'text');
-            }
-
-            if (type === 'Card') {
-                html += createInspectorRow('Title', 'title', props.title || '', 'text');
-                html += createInspectorRow('Subtitle', 'subtitle', props.subtitle || '', 'text');
-                html += createInspectorRow('Image URL', 'imageUrl', props.imageUrl || '', 'text');
-            }
-
-            if (type.startsWith('Charts')) {
-                html += createInspectorRow('Labels (comma sep.)', 'labels', props.labels || 'Jan, Feb, Mar', 'text');
-                html += createInspectorRow('Data (comma sep.)', 'data', props.data || '10, 20, 30', 'text');
-                html += createInspectorRow('Dataset Label', 'datasetLabel', props.datasetLabel || 'Sales', 'text');
-            }
+            // EVENTS SECTION
+            html += `<div style="font-size:10px; color:#888; margin-top:20px; border-top:1px solid #333; padding-top:10px; text-transform:uppercase;">Events (Java Code)</div>`;
+            const supportedEvents = ['onClick', 'onChange', 'onAction'];
+            props.events = props.events || {};
+            
+            supportedEvents.forEach(ev => {
+                const evCode = props.events[ev] || "";
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">${ev}</span>
+                        <textarea class="inspector-input" style="height:60px; font-family:monospace; font-size:10px;" 
+                            placeholder="e -> { ... }" 
+                            onchange="updateEvent('${ev}', this.value)">${evCode}</textarea>
+                    </div>
+                `;
+            });
 
             propList.innerHTML = html;
+        }
+
+        function updateEvent(evName, code) {
+            if (!selectedElement) return;
+            const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
+            props.events = props.events || {};
+            props.events[evName] = code;
+            selectedElement.setAttribute('data-props', JSON.stringify(props));
+            updateCode();
         }
 
         function createInspectorRow(label, key, value, type) {
@@ -418,6 +449,16 @@
                 if (props.btnStyle) c += `\n            .setStyle(Button.Style.${props.btnStyle})`;
                 if (props.icon) c += `\n            .setIcon("${props.icon}")`;
                 if (props.columns) c += `\n            .setColumns(${props.columns})`;
+                
+                // Events
+                if (props.events) {
+                    Object.keys(props.events).forEach(ev => {
+                        const code = props.events[ev];
+                        if (code && code.trim() !== "") {
+                            c += `\n            .${ev}(${code})`;
+                        }
+                    });
+                }
                 return c;
             }
 

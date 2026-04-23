@@ -43,6 +43,7 @@ public final class DesignerTopComponent extends TopComponent {
 
     private JFXPanel fxPanel;
     private WebEngine webEngine;
+    private String currentProjectPath;
 
     public DesignerTopComponent() {
         initComponents();
@@ -56,6 +57,19 @@ public final class DesignerTopComponent extends TopComponent {
         
         Platform.setImplicitExit(false);
         Platform.runLater(this::initFX);
+    }
+
+    public void setWorkingDirectory(String name, String path) {
+        this.currentProjectPath = path;
+        Platform.runLater(() -> {
+            webEngine.executeScript("setProjectInfo('" + name + "', '" + path.replace("\\", "/") + "')");
+        });
+    }
+
+    public void loadModelsToDesigner(String jsonModels) {
+        Platform.runLater(() -> {
+            webEngine.executeScript("loadWorkspaceFiles('" + jsonModels.replace("\\", "\\\\").replace("'", "\\'") + "')");
+        });
     }
 
     private void initFX() {
@@ -91,21 +105,36 @@ public final class DesignerTopComponent extends TopComponent {
             DialogDisplayer.getDefault().notify(new NotifyDescriptor.Message(text, NotifyDescriptor.ERROR_MESSAGE));
         }
 
+        public void saveCode(String className, String code) {
+            if (currentProjectPath == null) {
+                showError("No project selected. Please right-click a project and select 'Jettra Designer' first.");
+                return;
+            }
+            
+            try {
+                java.io.File pagesDir = new java.io.File(currentProjectPath, "src/main/java/com/jettra/example/pages");
+                if (!pagesDir.exists()) {
+                    pagesDir.mkdirs();
+                }
+                java.io.File targetFile = new java.io.File(pagesDir, className + ".java");
+                java.nio.file.Files.writeString(targetFile.toPath(), code);
+                showInfo("Saved to: " + targetFile.getAbsolutePath());
+            } catch (Exception e) {
+                showError("Error saving file: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
         public void generateCode(String code) {
-            // For now, just show it in a dialog or print it
-            // In a real scenario, this would create a new FileObject in the project
-            showInfo("Generated Code:\n" + code);
+            showInfo("Generated Code (Preview):\n" + (code.length() > 500 ? code.substring(0, 500) + "..." : code));
         }
 
         public void requestWorkspaceFiles() {
-            // Mock returning a basic model and page to test the designer
-            String mockData = "[\n" +
-                "  {\"path\": \"src/main/java/com/jettra/example/models/UserModel.java\", \"content\": \"public class UserModel {\\n    private String name;\\n    private String email;\\n    private Date createdAt;\\n}\"},\n" +
-                "  {\"path\": \"src/main/java/com/jettra/example/pages/UserPage.java\", \"content\": \"public class UserPage {\\n}\"}\n" +
-                "]";
-            Platform.runLater(() -> {
-                webEngine.executeScript("loadWorkspaceFiles('" + mockData.replace("\n", "\\n").replace("'", "\\'") + "')");
-            });
+            if (currentProjectPath == null) {
+                showInfo("No project selected. Right-click a project in the Project explorer and select 'Jettra Designer'.");
+                return;
+            }
+            // Logic handled by JettraDesignerAction but kept for compatibility
         }
     }
 
