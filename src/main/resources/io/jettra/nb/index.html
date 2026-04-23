@@ -43,6 +43,16 @@
         .explorer-item:hover { background: rgba(0,255,255,0.1); }
         .file-model { color: #4ade80; }
         .file-page { color: #facc15; }
+        
+        /* Property Inspector */
+        .property-inspector { flex: 0 0 250px; background: rgba(20,35,55,0.9); border-left: 1px solid var(--jettra-accent); padding: 15px; border-radius: 0; display: none; flex-direction: column; overflow-y: auto; z-index: 1000; }
+        .inspector-row { margin-bottom: 15px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border-left: 3px solid transparent; transition: all 0.3s; }
+        .inspector-row:hover { border-left-color: var(--jettra-accent); background: rgba(255,255,255,0.05); }
+        .inspector-label { display: block; font-size: 11px; color: #9aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .inspector-input { width: 100%; background: #0a0f15; border: 1px solid #334155; color: #fff; padding: 8px; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;}
+        .inspector-input:focus { border-color: var(--jettra-accent); box-shadow: 0 0 0 1px rgba(0,255,255,0.2); }
+        .icon-preset { transition: all 0.2s; border-radius: 4px; }
+        .icon-preset:hover { background: rgba(0,255,255,0.1); transform: scale(1.2); border-color: var(--jettra-accent) !important; }
     </style>
 </head>
 <body>
@@ -84,6 +94,14 @@
             </div>
             <textarea id="code-display" class="code-display" readonly>// Generated code will appear here...</textarea>
         </div>
+    </div>
+
+    <div id="property-inspector" class="property-inspector">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 14px; font-weight: bold; color: var(--jettra-accent); margin: 0;">Properties</span>
+            <span style="color: #ff4444; font-size: 24px; cursor: pointer; line-height: 1; font-weight: bold;" onclick="document.getElementById('property-inspector').style.display='none'">&times;</span>
+        </div>
+        <div id="inspector-properties" style="flex: 1;"></div>
     </div>
 
     <script>
@@ -231,8 +249,143 @@
                 el.id = el.id || 'move_' + Date.now();
             };
             
+            el.onclick = (e) => { e.stopPropagation(); selectElement(el); };
+            el.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); selectElement(el); showInspector(); };
+            
             canvas.appendChild(el);
             updateCode();
+        }
+
+        let selectedElement = null;
+
+        function selectElement(el) {
+            document.querySelectorAll('.canvas-item').forEach(i => i.classList.remove('selected'));
+            if (el) {
+                el.classList.add('selected');
+                selectedElement = el;
+                updateInspector();
+            } else {
+                selectedElement = null;
+                document.getElementById('property-inspector').style.display = 'none';
+            }
+        }
+
+        function showInspector() {
+            document.getElementById('property-inspector').style.display = 'flex';
+        }
+
+        function updateInspector() {
+            if (!selectedElement) return;
+            const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
+            const type = selectedElement.getAttribute('data-type');
+            const propList = document.getElementById('inspector-properties');
+            
+            let html = `<div style="font-size:11px; color:#aaa; margin-bottom:15px;">Component: <b style="color:#fff">${type}</b></div>`;
+
+            // Active View Model Selection
+            html += `
+                <div class="inspector-row">
+                    <span class="inspector-label">Bind to Model</span>
+                    <select class="inspector-input" onchange="updateProp('binding', this.value)">
+                        <option value="">No Binding</option>
+                        ${modelFields.map(f => `<option value="${f.name}" ${props.binding === f.name ? 'selected' : ''}>${f.name}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+
+            // Basic Properties
+            html += createInspectorRow('ID', 'id', props.id || '', 'text');
+            html += createInspectorRow('Text/Label', 'text', props.text || '', 'text');
+
+            // Component Specific Properties
+            if (type === 'SelectOne' || type === 'SelectMany') {
+                html += createInspectorRow('Options (val:lab,...)', 'options', props.options || '1:Option 1', 'text');
+                html += createInspectorRow('Default Value', 'default', props.default || '', 'text');
+            }
+
+            const iconComponents = ['Button', 'SelectOneIcon', 'Menu', 'MenuItem', 'Avatar', 'Alert', 'Notification', 'Link', 'Tab', 'TreeItem'];
+            if (iconComponents.includes(type)) {
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">Icon</span>
+                        <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:5px; margin-top:5px; margin-bottom:10px;">
+                            ${['👤','👥','🏠','📌','🔔','✉️','📁','📊','🚀','🌙','☀️','➕','📝','🗑️','✅'].map(icon => 
+                                `<div class="icon-preset" style="cursor:pointer; padding:5px; text-align:center; border:1px solid ${props.icon === icon ? 'var(--jettra-accent)' : 'rgba(255,255,255,0.1)'}" onclick="updateProp('icon', '${icon}')">${icon}</div>`
+                            ).join('')}
+                        </div>
+                        <input type="text" class="inspector-input" placeholder="Custom icon" value="${props.icon || ''}" onchange="updateProp('icon', this.value)">
+                    </div>
+                `;
+            }
+
+            if (type === 'Button') {
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">Button Style</span>
+                        <select class="inspector-input" onchange="updateProp('btnStyle', this.value)">
+                            <option value="PRIMARY" ${props.btnStyle === 'PRIMARY' ? 'selected' : ''}>PRIMARY</option>
+                            <option value="SECONDARY" ${props.btnStyle === 'SECONDARY' ? 'selected' : ''}>SECONDARY</option>
+                            <option value="HELP" ${props.btnStyle === 'HELP' ? 'selected' : ''}>HELP</option>
+                            <option value="DANGER" ${props.btnStyle === 'DANGER' ? 'selected' : ''}>DANGER</option>
+                            <option value="INFO" ${props.btnStyle === 'INFO' ? 'selected' : ''}>INFO</option>
+                        </select>
+                    </div>
+                `;
+            }
+
+            if (type === 'Panel' || type === 'Grid' || type === 'Board') {
+                html += createInspectorRow('Columns', 'columns', props.columns || 2, 'number');
+            }
+
+            if (type === 'Spinner') {
+                html += createInspectorRow('Min', 'min', props.min || 0, 'number');
+                html += createInspectorRow('Max', 'max', props.max || 100, 'number');
+                html += createInspectorRow('Step', 'step', props.step || 1, 'number');
+            }
+
+            if (type === 'RadioGroupButton' || type === 'CheckBoxGroup') {
+                html += createInspectorRow('Group Name', 'name', props.name || 'group1', 'text');
+            }
+
+            if (type === 'Card') {
+                html += createInspectorRow('Title', 'title', props.title || '', 'text');
+                html += createInspectorRow('Subtitle', 'subtitle', props.subtitle || '', 'text');
+                html += createInspectorRow('Image URL', 'imageUrl', props.imageUrl || '', 'text');
+            }
+
+            if (type.startsWith('Charts')) {
+                html += createInspectorRow('Labels (comma sep.)', 'labels', props.labels || 'Jan, Feb, Mar', 'text');
+                html += createInspectorRow('Data (comma sep.)', 'data', props.data || '10, 20, 30', 'text');
+                html += createInspectorRow('Dataset Label', 'datasetLabel', props.datasetLabel || 'Sales', 'text');
+            }
+
+            propList.innerHTML = html;
+        }
+
+        function createInspectorRow(label, key, value, type) {
+            return `
+                <div class="inspector-row">
+                    <label class="inspector-label">${label}</label>
+                    <input type="${type}" class="inspector-input" value="${value}" onchange="updateProp('${key}', this.value)" />
+                </div>
+            `;
+        }
+
+        function updateProp(key, value) {
+            if (!selectedElement) return;
+            const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
+            props[key] = value;
+            selectedElement.setAttribute('data-props', JSON.stringify(props));
+            
+            // Visual feedback update if needed
+            if (key === 'text') {
+                const type = selectedElement.getAttribute('data-type');
+                const inner = selectedElement.querySelector('h2, p, span, label, button, a');
+                if (inner) inner.innerText = value;
+            }
+            
+            updateCode();
+            updateInspector(); // Refresh to show changes (like icon selection)
         }
 
         function clearCanvas() {
@@ -242,7 +395,8 @@
 
         // Code Generation
         function updateCode() {
-            const items = document.querySelectorAll('#canvas > .canvas-item');
+            const canvas = document.getElementById('canvas');
+            const items = canvas.querySelectorAll(':scope > .canvas-item');
             if (items.length === 0) {
                 document.getElementById('code-display').value = "// No components added yet";
                 return;
@@ -258,6 +412,15 @@
             code += "    @Override\n";
             code += "    protected void initCenter(Center center, String username) {\n";
             
+            function chainProps(props, type) {
+                let c = "";
+                if (props.binding) c += `\n            .bind("${props.binding}")`;
+                if (props.btnStyle) c += `\n            .setStyle(Button.Style.${props.btnStyle})`;
+                if (props.icon) c += `\n            .setIcon("${props.icon}")`;
+                if (props.columns) c += `\n            .setColumns(${props.columns})`;
+                return c;
+            }
+
             function walk(nodes, parentName) {
                 let out = "";
                 nodes.forEach((it, idx) => {
@@ -265,17 +428,35 @@
                     const props = JSON.parse(it.getAttribute('data-props') || '{}');
                     const vName = props.id || (type.toLowerCase() + '_' + idx);
                     
-                    if (['Panel', 'Div', 'FormGroup', 'Card', 'Grid'].includes(type)) {
-                        out += `        ${type} ${vName} = new ${type}();\n`;
+                    const simpleTypes = ['Divide', 'Separator', 'Header', 'Paragraph', 'Span', 'Label', 'Clock', 'Loading', 'Alert', 'Notification'];
+                    
+                    if (['Panel', 'Div', 'FormGroup', 'Card', 'Grid', 'Board'].includes(type)) {
+                        out += `        ${type} ${vName} = new ${type}()${chainProps(props, type)};\n`;
+                        if (type === 'Card' && props.title) out += `        ${vName}.setTitle("${props.title}");\n`;
+                        
                         const kids = it.querySelectorAll(':scope > .canvas-container > .canvas-item, :scope > div > .canvas-container > .canvas-item');
                         if (kids.length > 0) out += walk(kids, vName);
                         out += `        ${parentName}.add(${vName});\n`;
-                    } else if (type === 'Header') {
-                        out += `        ${parentName}.add(new Header(2, "${props.text}"));\n`;
+                    } else if (simpleTypes.includes(type)) {
+                        let init = "";
+                        if (type === 'Header') init = `new Header(2, "${props.text}")`;
+                        else if (type === 'Divide' || type === 'Separator') init = `new ${type}()`;
+                        else init = `new ${type}("${props.text}")`;
+                        
+                        out += `        ${parentName}.add(${init}${chainProps(props, type)});\n`;
+                    } else if (type === 'SelectOne' || type === 'SelectMany') {
+                        out += `        ${parentName}.add(new ${type}("${vName}")${chainProps(props, type)}`;
+                        if (props.options) {
+                            props.options.split(',').forEach(o => {
+                                const [v, l] = o.split(':');
+                                out += `\n            .addOption("${v.trim()}", "${(l || v).trim()}")`;
+                            });
+                        }
+                        out += `);\n`;
                     } else if (type === 'Datatable') {
-                        out += `        ${parentName}.add(new Datatable().addHeaderRow("Col 1", "Col 2"));\n`;
+                        out += `        ${parentName}.add(new Datatable().addHeaderRow("Col 1", "Col 2")${chainProps(props, type)});\n`;
                     } else {
-                        out += `        ${parentName}.add(new ${type}("${props.text || vName}"));\n`;
+                        out += `        ${parentName}.add(new ${type}("${props.text || vName}")${chainProps(props, type)});\n`;
                     }
                 });
                 return out;
