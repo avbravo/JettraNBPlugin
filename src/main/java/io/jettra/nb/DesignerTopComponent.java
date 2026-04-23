@@ -1,7 +1,19 @@
 package io.jettra.nb;
 
 import java.awt.BorderLayout;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
+import javafx.application.Platform;
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.Scene;
+import javafx.scene.web.WebEngine;
+import javafx.scene.web.WebView;
+import netscape.javascript.JSObject;
 import org.netbeans.api.settings.ConvertAsProperties;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor;
 import org.openide.awt.ActionID;
 import org.openide.awt.ActionReference;
 import org.openide.windows.TopComponent;
@@ -29,28 +41,83 @@ import org.openide.util.NbBundle.Messages;
 })
 public final class DesignerTopComponent extends TopComponent {
 
+    private JFXPanel fxPanel;
+    private WebEngine webEngine;
+
     public DesignerTopComponent() {
         initComponents();
         setName(Bundle.CTL_DesignerTopComponent());
         setToolTipText(Bundle.HINT_DesignerTopComponent());
         
         setLayout(new BorderLayout());
-        // In a real implementation, we would add a JFXPanel with a WebView here
-        // to host the same designer HTML/JS from WebDesignerPage.java
+        
+        fxPanel = new JFXPanel();
+        add(fxPanel, BorderLayout.CENTER);
+        
+        Platform.setImplicitExit(false);
+        Platform.runLater(this::initFX);
+    }
+
+    private void initFX() {
+        WebView webView = new WebView();
+        webEngine = webView.getEngine();
+        
+        webEngine.getLoadWorker().stateProperty().addListener((ov, oldState, newState) -> {
+            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                JSObject window = (JSObject) webEngine.executeScript("window");
+                window.setMember("javaConnector", new JavaConnector());
+            }
+        });
+        
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                getClass().getResourceAsStream("index.html"), StandardCharsets.UTF_8))) {
+            String html = reader.lines().collect(Collectors.joining("\n"));
+            webEngine.loadContent(html);
+        } catch (Exception e) {
+            e.printStackTrace();
+            webEngine.loadContent("<html><body>Error loading UI</body></html>");
+        }
+        
+        Scene scene = new Scene(webView);
+        fxPanel.setScene(scene);
+    }
+
+    public class JavaConnector {
+        public void showInfo(String text) {
+            DialogDisplayer.getDefault().notify(new NotifyDescriptor.Message(text, NotifyDescriptor.INFORMATION_MESSAGE));
+        }
+
+        public void showError(String text) {
+            DialogDisplayer.getDefault().notify(new NotifyDescriptor.Message(text, NotifyDescriptor.ERROR_MESSAGE));
+        }
+
+        public void generateCode(String code) {
+            // For now, just show it in a dialog or print it
+            // In a real scenario, this would create a new FileObject in the project
+            showInfo("Generated Code:\n" + code);
+        }
+
+        public void requestWorkspaceFiles() {
+            // Mock returning a basic model and page to test the designer
+            String mockData = "[\n" +
+                "  {\"path\": \"src/main/java/com/jettra/example/models/UserModel.java\", \"content\": \"public class UserModel {\\n    private String name;\\n    private String email;\\n    private Date createdAt;\\n}\"},\n" +
+                "  {\"path\": \"src/main/java/com/jettra/example/pages/UserPage.java\", \"content\": \"public class UserPage {\\n}\"}\n" +
+                "]";
+            Platform.runLater(() -> {
+                webEngine.executeScript("loadWorkspaceFiles('" + mockData.replace("\n", "\\n").replace("'", "\\'") + "')");
+            });
+        }
     }
 
     private void initComponents() {
-        // ... NetBeans auto-generated code usually goes here
     }
 
     @Override
     public void componentOpened() {
-        // TODO add custom code on component opening
     }
 
     @Override
     public void componentClosed() {
-        // TODO add custom code on component closing
     }
 
     void writeProperties(java.util.Properties p) {

@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+OpenIDE-Module: io.jettra.nb.JettraNBPlugin
+OpenIDE-Module-Specification-Version: 1.0.0
+OpenIDE-Module-Localizing-Bundle: io/jettra/nb/Bundle.properties
