@@ -65,8 +65,23 @@ public final class JettraDesignerAction implements ActionListener {
             for (int i = 0; i < result.size(); i++) {
                 Path p = result.get(i);
                 String name = p.getFileName().toString();
-                String content = Files.readString(p).replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
-                json.append("{\"path\": \"").append(p.toString().replace("\\", "/")).append("\", \"content\": \"").append(content).append("\"}");
+                String content = Files.readString(p);
+                
+                // Manual escaping for a simple JSON array
+                String escapedContent = content
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\b", "\\b")
+                        .replace("\f", "\\f")
+                        .replace("\n", "\\n")
+                        .replace("\r", "\\r")
+                        .replace("\t", "\\t");
+                
+                json.append("{")
+                    .append("\"path\": \"").append(p.toString().replace("\\", "/")).append("\", ")
+                    .append("\"content\": \"").append(escapedContent).append("\"")
+                    .append("}");
+                
                 if (i < result.size() - 1) json.append(",");
             }
             json.append("]");
