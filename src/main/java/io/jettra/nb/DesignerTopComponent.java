@@ -107,16 +107,13 @@ public final class DesignerTopComponent extends TopComponent {
 
         public void saveCode(String className, String code) {
             if (currentProjectPath == null) {
-                showError("No project selected. Please right-click a project and select 'Jettra Designer' first.");
+                showError("No se ha seleccionado ningún proyecto. Por favor, haga clic derecho en un proyecto y seleccione 'Jettra Designer' primero.");
                 return;
             }
             
             try {
-                // Determine target directory based on class name or type
+                // Siempre guardar en el paquete pages según la nueva instrucción
                 String subPath = "src/main/java/com/jettra/example/pages";
-                if (className.endsWith("Model")) {
-                    subPath = "src/main/java/com/jettra/example/model";
-                }
                 
                 java.io.File targetDir = new java.io.File(currentProjectPath, subPath);
                 if (!targetDir.exists()) {
@@ -127,7 +124,7 @@ public final class DesignerTopComponent extends TopComponent {
                 
                 if (targetFile.exists()) {
                     NotifyDescriptor d = new NotifyDescriptor.Confirmation(
-                        "El archivo " + className + ".java ya existe. ¿Desea reemplazarlo con los nuevos cambios?",
+                        "<html>El archivo <b>" + className + ".java</b> ya existe.<br>¿Desea reemplazarlo con los nuevos cambios?</html>",
                         "Confirmar Reemplazo",
                         NotifyDescriptor.YES_NO_OPTION
                     );
@@ -137,7 +134,7 @@ public final class DesignerTopComponent extends TopComponent {
                 }
                 
                 java.nio.file.Files.writeString(targetFile.toPath(), code);
-                showInfo("Archivo guardado exitosamente en: " + targetFile.getAbsolutePath());
+                showInfo("Página guardada exitosamente en el paquete pages:\n" + targetFile.getAbsolutePath());
             } catch (Exception e) {
                 showError("Error al guardar el archivo: " + e.getMessage());
                 e.printStackTrace();

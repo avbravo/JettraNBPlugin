@@ -730,8 +730,10 @@
                         <div class="subtree-content">
                             ${items.map(f => {
                                 const name = f.path.split('/').pop();
+                                // Escape backslashes and single quotes for the JS call
+                                const escapedPath = f.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                                 return `
-                                    <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${f.path}')" ondblclick="loadFileContentToCanvas('${f.path}')">
+                                    <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${escapedPath}')" ondblclick="loadFileContentToCanvas('${escapedPath}')">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px; opacity:0.7;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
                                         ${name}
                                     </div>
@@ -822,10 +824,26 @@
         }
 
         function loadFileContentToCanvas(path) {
-            const content = fileCache[path];
+            console.log("Loading path:", path);
+            let content = fileCache[path];
+            
+            if (!content) {
+                // Fallback: try finding by filename
+                const filename = path.split(/[/\\]/).pop();
+                for (let key in fileCache) {
+                    if (key.endsWith(filename)) {
+                        content = fileCache[key];
+                        break;
+                    }
+                }
+            }
+
             if (content) {
                 document.getElementById('code-display').value = content;
                 syncCodeToCanvas();
+                if (window.javaConnector) window.javaConnector.showInfo("Abierto: " + path.split(/[/\\]/).pop());
+            } else {
+                if (window.javaConnector) window.javaConnector.showError("Error: No se encontró el contenido del archivo.");
             }
         }
 
@@ -834,18 +852,24 @@
             const canvas = document.getElementById('canvas');
             canvas.innerHTML = '';
             
+            if (!code || code.trim() === "" || code.startsWith('//')) {
+                canvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
+                return;
+            }
+
             let lines = code.split('\n');
             let found = false;
             lines.forEach(line => {
-                let m = line.match(/\.add\(\s*new\s+([A-Z][a-zA-Z0-9_]*)\s*\(/);
-                if (m) {
+                // Look for common component instantiation patterns: .add(new Comp(...)) or new Comp(...)
+                let m = line.match(/(?:\.add\s*\(\s*)?new\s+([A-Z][a-zA-Z0-9_]*)\s*\(/);
+                if (m && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date'].includes(m[1])) {
                     found = true;
                     addComponent(m[1], canvas);
                 }
             });
             
             if (!found) {
-                canvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
+                canvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
             }
         }
     </script>
