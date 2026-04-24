@@ -329,7 +329,7 @@
             let content = '';
             switch(type) {
                 case 'Clock': content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>'; break;
-                case 'Header': content = '<h2 style="margin:0; color:var(--jettra-text);">New Header</h2>'; break;
+                case 'Header': content = '<h2 style="margin:0; color:var(--jettra-text);">New Header</h2>'; el.setAttribute('data-props', JSON.stringify({id: 'header_' + Date.now(), text: 'New Header', level: '2'})); break;
                 case 'Paragraph': content = '<p style="margin:0; color:var(--jettra-text);">Sample text...</p>'; break;
                 case 'Span': content = '<span style="color:var(--jettra-text);">Span Text</span>'; break;
                 case 'Label': content = '<label style="color:var(--jettra-text); font-weight:bold;">Label Text</label>'; break;
@@ -469,6 +469,22 @@
                 html += createInspectorRow('Default', 'default', props.default || '', 'text');
             }
 
+            if (type === 'Header') {
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">Level</span>
+                        <select class="inspector-input" onchange="updateProp('level', this.value)">
+                            <option value="1" ${props.level === '1' ? 'selected' : ''}>H1</option>
+                            <option value="2" ${props.level === '2' ? 'selected' : ''}>H2</option>
+                            <option value="3" ${props.level === '3' ? 'selected' : ''}>H3</option>
+                            <option value="4" ${props.level === '4' ? 'selected' : ''}>H4</option>
+                            <option value="5" ${props.level === '5' ? 'selected' : ''}>H5</option>
+                            <option value="6" ${props.level === '6' ? 'selected' : ''}>H6</option>
+                        </select>
+                    </div>
+                `;
+            }
+
             const iconComponents = ['Button', 'SelectOneIcon', 'Menu', 'MenuItem', 'Avatar', 'Alert', 'Notification', 'Link', 'Tab', 'TreeItem'];
             if (iconComponents.includes(type)) {
                 const iconPresets = [
@@ -556,10 +572,17 @@
             selectedElement.setAttribute('data-props', JSON.stringify(props));
             
             // Visual feedback update if needed
-            if (key === 'text') {
+            if (key === 'text' || key === 'level') {
                 const type = selectedElement.getAttribute('data-type');
-                const inner = selectedElement.querySelector('h2, p, span, label, button, a');
-                if (inner) inner.innerText = value;
+                if (type === 'Header') {
+                    const level = props.level || '2';
+                    const text = props.text || 'Header';
+                    selectedElement.innerHTML = `<h${level} style="margin:0; color:var(--jettra-text);">${text}</h${level}>` + 
+                        '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                } else if (key === 'text') {
+                    const inner = selectedElement.querySelector('h2, p, span, label, button, a');
+                    if (inner) inner.innerText = value;
+                }
             }
             
             updateCode();
@@ -627,7 +650,7 @@
                         out += `        ${parentName}.add(${vName});\n`;
                     } else if (simpleTypes.includes(type)) {
                         let init = "";
-                        if (type === 'Header') init = `new Header(2, "${props.text}")`;
+                        if (type === 'Header') init = `new Header(${props.level || 2}, "${props.text}")`;
                         else if (type === 'Divide' || type === 'Separator') init = `new ${type}()`;
                         else init = `new ${type}("${props.text}")`;
                         
@@ -675,26 +698,41 @@
             const files = JSON.parse(filesJson);
             fileCache = {};
             models = [];
-            const treeHtml = [];
+            const groups = { model: [], pages: [], properties: [] };
             
             files.forEach(f => {
                 fileCache[f.path] = f.content;
-                const name = f.path.split('/').pop();
-                let cls = '';
-                if (name.endsWith('Model.java')) {
-                    models.push({ name: name.replace('.java', ''), path: f.path });
-                    cls = 'file-model';
-                } else if (name.endsWith('Page.java')) {
-                    cls = 'file-page';
-                }
-                
-                treeHtml.push(`
-                    <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${f.path}')" onclick="loadFileContentToCanvas('${f.path}')">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px; opacity:0.7;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                        ${name}
-                    </div>
-                `);
+                if (f.type === 'model') models.push({ name: f.path.split('/').pop().replace('.java', ''), path: f.path });
+                if (groups[f.type]) groups[f.type].push(f);
             });
+            
+            const renderGroup = (title, items, cls) => {
+                if (items.length === 0) return '';
+                return `
+                    <div class="tree-subtree" style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: #555; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                            ${title.toUpperCase()}
+                        </div>
+                        <div class="subtree-content">
+                            ${items.map(f => {
+                                const name = f.path.split('/').pop();
+                                return `
+                                    <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${f.path}')" onclick="loadFileContentToCanvas('${f.path}')">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px; opacity:0.7;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                                        ${name}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const treeHtml = [];
+            treeHtml.push(renderGroup('model', groups.model, 'file-model'));
+            treeHtml.push(renderGroup('pages', groups.pages, 'file-page'));
+            treeHtml.push(renderGroup('properties', groups.properties, ''));
             
             document.getElementById('file-tree').innerHTML = treeHtml.join('');
             document.getElementById('project-explorer').style.display = 'block';
