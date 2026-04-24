@@ -157,7 +157,7 @@
                     </button>
                 </div>
             </div>
-            <textarea id="code-display" class="code-display" readonly>// Generated code will appear here...</textarea>
+            <textarea id="code-display" class="code-display" placeholder="Java code will appear here or can be written manually...">// Generated code will appear here...</textarea>
         </div>
     </div>
 
@@ -427,13 +427,18 @@
 
         function saveGeneratedCode() {
             const code = document.getElementById('code-display').value;
-            if (code.startsWith('//')) {
-                if (window.javaConnector) window.javaConnector.showError("No code generated to save.");
+            if (!code || code.trim() === "" || code.startsWith('//')) {
+                if (window.javaConnector) window.javaConnector.showError("No hay código para guardar.");
                 return;
             }
-            // Extract class name
-            const match = code.match(/public class (\w+)/);
-            const className = match ? match[1] : "GeneratedPage";
+            // Extract class name more robustly
+            const match = code.match(/public\s+(?:abstract\s+)?class\s+(\w+)/);
+            const className = match ? match[1] : null;
+            
+            if (!className) {
+                if (window.javaConnector) window.javaConnector.showError("No se pudo identificar el nombre de la clase en el código.");
+                return;
+            }
             
             if (window.javaConnector) {
                 window.javaConnector.saveCode(className, code);
@@ -695,7 +700,15 @@
 
         // Called from Java
         function loadWorkspaceFiles(filesJson) {
-            const files = JSON.parse(filesJson);
+            let files = JSON.parse(filesJson);
+            
+            // Sort files alphabetically by filename
+            files.sort((a, b) => {
+                const nameA = a.path.split('/').pop().toUpperCase();
+                const nameB = b.path.split('/').pop().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+
             fileCache = {};
             models = [];
             const groups = { model: [], pages: [], properties: [] };
@@ -718,7 +731,7 @@
                             ${items.map(f => {
                                 const name = f.path.split('/').pop();
                                 return `
-                                    <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${f.path}')" onclick="loadFileContentToCanvas('${f.path}')">
+                                    <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${f.path}')" ondblclick="loadFileContentToCanvas('${f.path}')">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px; opacity:0.7;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
                                         ${name}
                                     </div>
@@ -732,7 +745,7 @@
             const treeHtml = [];
             treeHtml.push(renderGroup('model', groups.model, 'file-model'));
             treeHtml.push(renderGroup('pages', groups.pages, 'file-page'));
-            treeHtml.push(renderGroup('properties', groups.properties, ''));
+            treeHtml.push(renderGroup('resources', groups.properties, ''));
             
             document.getElementById('file-tree').innerHTML = treeHtml.join('');
             document.getElementById('project-explorer').style.display = 'block';

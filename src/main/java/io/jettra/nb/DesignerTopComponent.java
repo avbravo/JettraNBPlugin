@@ -112,15 +112,34 @@ public final class DesignerTopComponent extends TopComponent {
             }
             
             try {
-                java.io.File pagesDir = new java.io.File(currentProjectPath, "src/main/java/com/jettra/example/pages");
-                if (!pagesDir.exists()) {
-                    pagesDir.mkdirs();
+                // Determine target directory based on class name or type
+                String subPath = "src/main/java/com/jettra/example/pages";
+                if (className.endsWith("Model")) {
+                    subPath = "src/main/java/com/jettra/example/model";
                 }
-                java.io.File targetFile = new java.io.File(pagesDir, className + ".java");
+                
+                java.io.File targetDir = new java.io.File(currentProjectPath, subPath);
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs();
+                }
+                
+                java.io.File targetFile = new java.io.File(targetDir, className + ".java");
+                
+                if (targetFile.exists()) {
+                    NotifyDescriptor d = new NotifyDescriptor.Confirmation(
+                        "El archivo " + className + ".java ya existe. ¿Desea reemplazarlo con los nuevos cambios?",
+                        "Confirmar Reemplazo",
+                        NotifyDescriptor.YES_NO_OPTION
+                    );
+                    if (DialogDisplayer.getDefault().notify(d) != NotifyDescriptor.YES_OPTION) {
+                        return;
+                    }
+                }
+                
                 java.nio.file.Files.writeString(targetFile.toPath(), code);
-                showInfo("Saved to: " + targetFile.getAbsolutePath());
+                showInfo("Archivo guardado exitosamente en: " + targetFile.getAbsolutePath());
             } catch (Exception e) {
-                showError("Error saving file: " + e.getMessage());
+                showError("Error al guardar el archivo: " + e.getMessage());
                 e.printStackTrace();
             }
         }
