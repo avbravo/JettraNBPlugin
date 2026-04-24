@@ -84,10 +84,17 @@
         .icon-preset { transition: all 0.2s; border-radius: 4px; font-size: 18px; line-height: 1.5; }
         .icon-preset:hover { background: rgba(0,255,255,0.1); transform: scale(1.2); border-color: var(--jettra-accent) !important; }
         
-        /* Sidebar Tabs */
-        .sidebar-tabs { display: flex; border-bottom: 1px solid var(--jettra-border); background: #0d1117; }
-        .sidebar-tab { flex: 1; padding: 10px; text-align: center; font-size: 11px; cursor: pointer; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; }
-        .sidebar-tab:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        /* Designer Tabs */
+        .designer-tabs { display: flex; background: #0d1117; border-bottom: 1px solid var(--jettra-border); padding: 0 10px; gap: 5px; height: 35px; align-items: flex-end; }
+        .designer-tab { padding: 5px 15px; background: rgba(255,255,255,0.05); color: #8b949e; border: 1px solid var(--jettra-border); border-bottom: none; border-radius: 6px 6px 0 0; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; position: relative; bottom: -1px; }
+        .designer-tab.active { background: #161b22; color: var(--jettra-accent); border-color: var(--jettra-accent); border-bottom: 1px solid #161b22; z-index: 2; font-weight: bold; }
+        .designer-tab:hover:not(.active) { background: rgba(255,255,255,0.1); color: #fff; }
+        .designer-tab-close { opacity: 0.5; font-weight: bold; font-size: 14px; }
+        .designer-tab-close:hover { color: #ff4444; opacity: 1; }
+        
+        .canvas-viewport { display: none; height: 100%; overflow: auto; position: relative; }
+        .canvas-viewport.active { display: block; }
+        
         .sidebar-tab.active { color: var(--jettra-accent); border-bottom: 2px solid var(--jettra-accent); background: rgba(0,255,255,0.05); font-weight: bold; }
         .tab-content { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
         .tab-content.active { display: flex; }
@@ -140,9 +147,19 @@
             </div>
         </div>
         
-        <div class="canvas-area">
-            <div id="canvas" class="canvas-drop-area" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>
+        <div class="canvas-area" style="display: flex; flex-direction: column;">
+            <div id="designer-tabs" class="designer-tabs">
+                <div id="tab-main" class="designer-tab active" onclick="switchDesignerTab('main')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                    Main Page
+                </div>
+            </div>
+            <div id="viewports-container" style="flex: 1; position: relative; overflow: hidden;">
+                <div id="viewport-main" class="canvas-viewport active">
+                    <div id="canvas" class="canvas-drop-area" style="min-height: 100%;" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -174,6 +191,71 @@
         let models = [];
         let currentModel = null;
         let modelFields = [];
+        let currentClassName = "GeneratedPage";
+        
+        let designerTabs = [{ id: 'main', title: 'Main Page' }];
+        let activeDesignerTab = 'main';
+
+        function switchDesignerTab(id) {
+            activeDesignerTab = id;
+            document.querySelectorAll('.designer-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.canvas-viewport').forEach(v => v.classList.remove('active'));
+            
+            const tab = document.getElementById('tab-' + id);
+            const viewport = document.getElementById('viewport-' + id);
+            
+            if (tab) tab.classList.add('active');
+            if (viewport) viewport.classList.add('active');
+        }
+
+        function addModalTab(modalId, title) {
+            if (designerTabs.find(t => t.id === modalId)) return;
+            
+            designerTabs.push({ id: modalId, title: title });
+            
+            const tabsContainer = document.getElementById('designer-tabs');
+            const tab = document.createElement('div');
+            tab.id = 'tab-' + modalId;
+            tab.className = 'designer-tab';
+            tab.onclick = () => switchDesignerTab(modalId);
+            tab.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${title}</span>
+                <span class="designer-tab-close" onclick="closeDesignerTab(event, '${modalId}')">&times;</span>
+            `;
+            tabsContainer.appendChild(tab);
+            
+            const viewportsContainer = document.getElementById('viewports-container');
+            const viewport = document.createElement('div');
+            viewport.id = 'viewport-' + modalId;
+            viewport.className = 'canvas-viewport';
+            viewport.innerHTML = `
+                <div id="canvas-${modalId}" class="canvas-drop-area canvas-container" style="min-height: 100%; padding: 20px;" ondrop="drop(event)" ondragover="allowDrop(event)">
+                    <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Modal Content: Drag components here</div>
+                </div>
+            `;
+            viewportsContainer.appendChild(viewport);
+            
+            switchDesignerTab(modalId);
+        }
+
+        function closeDesignerTab(e, id) {
+            if (e) e.stopPropagation();
+            if (id === 'main') return;
+            
+            const index = designerTabs.findIndex(t => t.id === id);
+            if (index > -1) {
+                designerTabs.splice(index, 1);
+                const tab = document.getElementById('tab-' + id);
+                const viewport = document.getElementById('viewport-' + id);
+                if (tab) tab.remove();
+                if (viewport) viewport.remove();
+                if (activeDesignerTab === id) {
+                    switchDesignerTab('main');
+                }
+            }
+            updateCode();
+        }
 
         // Setup Palette
         const categories = {
@@ -315,15 +397,18 @@
             if (target) target.classList.remove('drag-over');
         });
 
-        function addComponent(type, parent) {
-            const canvas = parent || document.getElementById('canvas');
+        function addComponent(type, parent, customId) {
+            const canvas = parent || document.querySelector('.canvas-viewport.active .canvas-drop-area');
+            if (!canvas) return;
+            
             const placeholder = canvas.querySelector('.canvas-placeholder');
             if (placeholder) placeholder.style.display = 'none';
             
             const el = document.createElement('div');
             el.className = 'canvas-item';
             el.setAttribute('data-type', type);
-            el.setAttribute('data-props', JSON.stringify({id: type.toLowerCase() + '_' + Date.now(), text: type}));
+            const compId = customId || (type.toLowerCase() + '_' + Date.now());
+            el.setAttribute('data-props', JSON.stringify({id: compId, text: type}));
             el.draggable = true;
             
             let content = '';
@@ -372,6 +457,19 @@
                 case 'Datatable': content = '<table style="width:100%;border-collapse:collapse;border:1px solid var(--jettra-border);"><tr style="background:rgba(0,255,255,0.1);border-bottom:1px solid var(--jettra-border);"><th style="padding:8px;text-align:left;">Col 1</th><th style="padding:8px;text-align:left;">Col 2</th></tr><tr><td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row 1</td><td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row 1</td></tr></table>'; break;
                 case 'Panel': content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>'; break;
                 case 'Div': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px;">Div Container</div>'; break;
+                case 'Modal':
+                case 'Dialog':
+                    const mId = customId || ('modal_' + Date.now());
+                    content = `<div style="padding:15px; border:1px solid var(--jettra-accent); border-radius:12px; background:rgba(0,255,255,0.05); cursor:pointer; min-width:150px; text-align:center;" onclick="switchDesignerTab('${mId}')">
+                        <div style="font-weight:bold; color:var(--jettra-accent); margin-bottom:5px; font-size:14px;">${type}</div>
+                        <div style="font-size:10px; opacity:0.7; color:#fff;">Click to edit content</div>
+                    </div>`;
+                    addModalTab(mId, `${type} ${mId.startsWith('modal_') ? mId.substring(6, 10) : mId}`);
+                    el.setAttribute('data-tab-id', mId);
+                    const currentProps = JSON.parse(el.getAttribute('data-props'));
+                    currentProps.id = mId;
+                    el.setAttribute('data-props', JSON.stringify(currentProps));
+                    break;
                 case 'FormGroup': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">Form Group</label></div>'; break;
                 default: content = `<div>${type} Component</div>`;
             }
@@ -595,7 +693,17 @@
         }
 
         function clearCanvas() {
-            document.getElementById('canvas').innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
+            document.querySelectorAll('.canvas-drop-area').forEach(c => {
+                c.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
+            });
+            
+            // Remove modal tabs/viewports
+            document.querySelectorAll('.designer-tab:not(#tab-main)').forEach(t => t.remove());
+            document.querySelectorAll('.canvas-viewport:not(#viewport-main)').forEach(v => v.remove());
+            designerTabs = [{ id: 'main', title: 'Main Page' }];
+            activeDesignerTab = 'main';
+            switchDesignerTab('main');
+            
             updateCode();
         }
 
@@ -611,7 +719,7 @@
             let code = "package com.jettra.example.pages;\n\n";
             code += "import io.jettra.wui.complex.*;\n";
             code += "import io.jettra.wui.components.*;\n\n";
-            code += "public class GeneratedPage extends DashboardBasePage {\n\n";
+            code += `public class ${currentClassName} extends DashboardBasePage {\n\n`;
             if (currentModel) {
                 code += `    private ${currentModel.name} model = new ${currentModel.name}();\n\n`;
             }
@@ -679,6 +787,22 @@
             }
             
             code += walk(items, "center");
+
+            // Walk Modal tabs
+            designerTabs.forEach(tab => {
+                if (tab.id === 'main') return;
+                const mCanvas = document.getElementById('canvas-' + tab.id);
+                if (!mCanvas) return;
+                const mItems = mCanvas.querySelectorAll(':scope > .canvas-item');
+                if (mItems.length > 0) {
+                    const varName = tab.id.replace('modal_', 'm_');
+                    code += `\n        // Modal Content: ${tab.title}\n`;
+                    code += `        Modal ${varName} = new Modal("${tab.id}");\n`;
+                    code += walk(mItems, varName);
+                    code += `        center.add(${varName});\n`;
+                }
+            });
+
             code += "    }\n}\n";
             
             document.getElementById('code-display').value = code;
@@ -839,9 +963,15 @@
             }
 
             if (content) {
+                // Extract class name
+                const classMatch = content.match(/public\s+(?:abstract\s+)?class\s+(\w+)/);
+                if (classMatch) {
+                    currentClassName = classMatch[1];
+                }
+                
                 document.getElementById('code-display').value = content;
                 syncCodeToCanvas();
-                if (window.javaConnector) window.javaConnector.showInfo("Abierto: " + path.split(/[/\\]/).pop());
+                if (window.javaConnector) window.javaConnector.showInfo("Abierto: " + currentClassName);
             } else {
                 if (window.javaConnector) window.javaConnector.showError("Error: No se encontró el contenido del archivo.");
             }
@@ -849,28 +979,68 @@
 
         function syncCodeToCanvas() {
             const code = document.getElementById('code-display').value;
-            const canvas = document.getElementById('canvas');
-            canvas.innerHTML = '';
+            
+            // Rebuild Tabs
+            const tabsContainer = document.getElementById('designer-tabs');
+            const viewportsContainer = document.getElementById('viewports-container');
+            
+            // Remove modal tabs/viewports
+            document.querySelectorAll('.designer-tab:not(#tab-main)').forEach(t => t.remove());
+            document.querySelectorAll('.canvas-viewport:not(#viewport-main)').forEach(v => v.remove());
+            designerTabs = [{ id: 'main', title: 'Main Page' }];
+            activeDesignerTab = 'main';
+            switchDesignerTab('main');
+
+            const mainCanvas = document.getElementById('canvas');
+            mainCanvas.innerHTML = '';
             
             if (!code || code.trim() === "" || code.startsWith('//')) {
-                canvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
+                mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
                 return;
             }
 
             let lines = code.split('\n');
             let found = false;
+            
+            // Track variables to determine which canvas to add components to
+            let modalVars = {}; // { varName: canvasId }
+
             lines.forEach(line => {
-                // Look for common component instantiation patterns: .add(new Comp(...)) or new Comp(...)
-                let m = line.match(/(?:\.add\s*\(\s*)?new\s+([A-Z][a-zA-Z0-9_]*)\s*\(/);
-                if (m && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date'].includes(m[1])) {
+                // 1. Detect Modal/Dialog instantiation and assignment
+                // Modal myModal = new Modal("modalId") or (Modal)center.findComponent("modalId")
+                let modalMatch = line.match(/(Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+\1|(?:\(\1\))?center\.findComponent)\s*\("([^"]+)"\)/);
+                if (modalMatch) {
+                    const type = modalMatch[1];
+                    const varName = modalMatch[2];
+                    const modalId = modalMatch[3];
+                    
+                    modalVars[varName] = 'canvas-' + modalId;
+                    addComponent(type, mainCanvas, modalId);
                     found = true;
-                    addComponent(m[1], canvas);
+                }
+                
+                // 2. Detect components added to center or modals
+                // parent.add(new Comp(...)) or parent.add(var)
+                let addMatch = line.match(/(\w+)\.add\(\s*(?:new\s+([A-Z][a-zA-Z0-9_]*)|(\w+))/);
+                if (addMatch) {
+                    const parentVar = addMatch[1];
+                    const compType = addMatch[2];
+                    
+                    if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date', 'Modal', 'Dialog'].includes(compType)) {
+                        found = true;
+                        let targetCanvas = mainCanvas;
+                        if (modalVars[parentVar]) {
+                            targetCanvas = document.getElementById(modalVars[parentVar]);
+                        }
+                        addComponent(compType, targetCanvas);
+                    }
                 }
             });
             
             if (!found) {
-                canvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
+                mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
             }
+            switchDesignerTab('main');
         }
     </script>
 </body>
