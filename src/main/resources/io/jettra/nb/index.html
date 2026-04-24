@@ -192,6 +192,7 @@
         let currentModel = null;
         let modelFields = [];
         let currentClassName = "GeneratedPage";
+        let isSyncing = false;
         
         let designerTabs = [{ id: 'main', title: 'Main Page' }];
         let activeDesignerTab = 'main';
@@ -397,7 +398,7 @@
             if (target) target.classList.remove('drag-over');
         });
 
-        function addComponent(type, parent, customId) {
+        function addComponent(type, parent, customId, initialProps) {
             const canvas = parent || document.querySelector('.canvas-viewport.active .canvas-drop-area');
             if (!canvas) return;
             
@@ -408,16 +409,22 @@
             el.className = 'canvas-item';
             el.setAttribute('data-type', type);
             const compId = customId || (type.toLowerCase() + '_' + Date.now());
-            el.setAttribute('data-props', JSON.stringify({id: compId, text: type}));
+            const props = initialProps || {id: compId, text: type};
+            el.setAttribute('data-props', JSON.stringify(props));
             el.draggable = true;
             
             let content = '';
+            const p = JSON.parse(el.getAttribute('data-props'));
             switch(type) {
                 case 'Clock': content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>'; break;
-                case 'Header': content = '<h2 style="margin:0; color:var(--jettra-text);">New Header</h2>'; el.setAttribute('data-props', JSON.stringify({id: 'header_' + Date.now(), text: 'New Header', level: '2'})); break;
-                case 'Paragraph': content = '<p style="margin:0; color:var(--jettra-text);">Sample text...</p>'; break;
-                case 'Span': content = '<span style="color:var(--jettra-text);">Span Text</span>'; break;
-                case 'Label': content = '<label style="color:var(--jettra-text); font-weight:bold;">Label Text</label>'; break;
+                case 'Header': 
+                    const hLevel = p.level || '2';
+                    const hText = p.text || 'Header';
+                    content = `<h${hLevel} style="margin:0; color:var(--jettra-text);">${hText}</h${hLevel}>`; 
+                    break;
+                case 'Paragraph': content = `<p style="margin:0; color:var(--jettra-text);">${p.text || 'Sample text...'}</p>`; break;
+                case 'Span': content = `<span style="color:var(--jettra-text);">${p.text || 'Span Text'}</span>`; break;
+                case 'Label': content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`; break;
                 case 'Divide': content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>'; break;
                 case 'Separator': content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">'; break;
                 case 'Button': content = '<button class="j-btn j-btn-primary" type="button">Interactive Button</button>'; break;
@@ -486,7 +493,7 @@
             el.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); selectElement(el); showInspector(); };
             
             canvas.appendChild(el);
-            updateCode();
+            if (!isSyncing) updateCode();
         }
 
         let selectedElement = null;
@@ -978,6 +985,7 @@
         }
 
         function syncCodeToCanvas() {
+            isSyncing = true;
             const code = document.getElementById('code-display').value;
             
             // Rebuild Tabs
@@ -1021,10 +1029,11 @@
                 
                 // 2. Detect components added to center or modals
                 // parent.add(new Comp(...)) or parent.add(var)
-                let addMatch = line.match(/(\w+)\.add\(\s*(?:new\s+([A-Z][a-zA-Z0-9_]*)|(\w+))/);
+                let addMatch = line.match(/(\w+)\.add\(\s*(?:new\s+([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)|(\w+))/);
                 if (addMatch) {
                     const parentVar = addMatch[1];
                     const compType = addMatch[2];
+                    const args = addMatch[3];
                     
                     if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date', 'Modal', 'Dialog'].includes(compType)) {
                         found = true;
@@ -1032,7 +1041,19 @@
                         if (modalVars[parentVar]) {
                             targetCanvas = document.getElementById(modalVars[parentVar]);
                         }
-                        addComponent(compType, targetCanvas);
+                        
+                        let initialProps = { id: compType.toLowerCase() + '_' + Date.now(), text: compType };
+                        if (args) {
+                            let argParts = args.split(',').map(a => a.trim());
+                            if (compType === 'Header') {
+                                initialProps.level = argParts[0] || '2';
+                                initialProps.text = (argParts[1] || 'Header').replace(/"/g, '');
+                            } else {
+                                initialProps.text = argParts[0].replace(/"/g, '');
+                            }
+                        }
+                        
+                        addComponent(compType, targetCanvas, initialProps.id, initialProps);
                     }
                 }
             });
@@ -1041,6 +1062,7 @@
                 mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
             }
             switchDesignerTab('main');
+            isSyncing = false;
         }
     </script>
 </body>
