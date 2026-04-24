@@ -985,84 +985,116 @@
         }
 
         function syncCodeToCanvas() {
-            isSyncing = true;
             const code = document.getElementById('code-display').value;
-            
-            // Rebuild Tabs
-            const tabsContainer = document.getElementById('designer-tabs');
-            const viewportsContainer = document.getElementById('viewports-container');
-            
-            // Remove modal tabs/viewports
-            document.querySelectorAll('.designer-tab:not(#tab-main)').forEach(t => t.remove());
-            document.querySelectorAll('.canvas-viewport:not(#viewport-main)').forEach(v => v.remove());
-            designerTabs = [{ id: 'main', title: 'Main Page' }];
-            activeDesignerTab = 'main';
-            switchDesignerTab('main');
-
             const mainCanvas = document.getElementById('canvas');
-            mainCanvas.innerHTML = '';
             
-            if (!code || code.trim() === "" || code.startsWith('//')) {
-                mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
-                return;
-            }
-
-            let lines = code.split('\n');
-            let found = false;
-            
-            // Track variables to determine which canvas to add components to
-            let modalVars = {}; // { varName: canvasId }
-
-            lines.forEach(line => {
-                // 1. Detect Modal/Dialog instantiation and assignment
-                // Modal myModal = new Modal("modalId") or (Modal)center.findComponent("modalId")
-                let modalMatch = line.match(/(Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+\1|(?:\(\1\))?center\.findComponent)\s*\("([^"]+)"\)/);
-                if (modalMatch) {
-                    const type = modalMatch[1];
-                    const varName = modalMatch[2];
-                    const modalId = modalMatch[3];
-                    
-                    modalVars[varName] = 'canvas-' + modalId;
-                    addComponent(type, mainCanvas, modalId);
-                    found = true;
-                }
+            try {
+                isSyncing = true;
                 
-                // 2. Detect components added to center or modals
-                // parent.add(new Comp(...)) or parent.add(var)
-                let addMatch = line.match(/(\w+)\.add\(\s*(?:new\s+([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)|(\w+))/);
-                if (addMatch) {
-                    const parentVar = addMatch[1];
-                    const compType = addMatch[2];
-                    const args = addMatch[3];
-                    
-                    if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date', 'Modal', 'Dialog'].includes(compType)) {
-                        found = true;
-                        let targetCanvas = mainCanvas;
-                        if (modalVars[parentVar]) {
-                            targetCanvas = document.getElementById(modalVars[parentVar]);
-                        }
-                        
-                        let initialProps = { id: compType.toLowerCase() + '_' + Date.now(), text: compType };
-                        if (args) {
-                            let argParts = args.split(',').map(a => a.trim());
-                            if (compType === 'Header') {
-                                initialProps.level = argParts[0] || '2';
-                                initialProps.text = (argParts[1] || 'Header').replace(/"/g, '');
-                            } else {
-                                initialProps.text = argParts[0].replace(/"/g, '');
-                            }
-                        }
-                        
-                        addComponent(compType, targetCanvas, initialProps.id, initialProps);
-                    }
+                // Rebuild Tabs
+                const tabsContainer = document.getElementById('designer-tabs');
+                const viewportsContainer = document.getElementById('viewports-container');
+                
+                // Remove modal tabs/viewports
+                document.querySelectorAll('.designer-tab:not(#tab-main)').forEach(t => t.remove());
+                document.querySelectorAll('.canvas-viewport:not(#viewport-main)').forEach(v => v.remove());
+                designerTabs = [{ id: 'main', title: 'Main Page' }];
+                activeDesignerTab = 'main';
+                switchDesignerTab('main');
+
+                mainCanvas.innerHTML = '';
+                
+                if (!code || code.trim() === "" || code.startsWith('//')) {
+                    mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
+                    return;
                 }
-            });
-            
-            if (!found) {
-                mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
+                const lines = code.split('\n');
+                let found = false;
+                let modalVars = {}; // { varName: canvasId }
+                let varTypes = {}; // { varName: compType }
+
+                console.log(`Syncing ${lines.length} lines of code...`);
+
+                lines.forEach((line, index) => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('import ') || trimmedLine.startsWith('package ')) return;
+
+                    // 1. Detect Modal/Dialog instantiation
+                    let modalMatch = trimmedLine.match(/(?:Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+(?:Modal|Dialog)|(?:\(\s*(?:Modal|Dialog)\s*\))?[\w.]+\.findComponent)\s*\("([^"]+)"\)/);
+                    if (!modalMatch) {
+                        modalMatch = trimmedLine.match(/(\w+)\s*=\s*new\s+(?:Modal|Dialog)\s*\("([^"]+)"\)/);
+                    }
+
+                    if (modalMatch) {
+                        const varName = modalMatch[1];
+                        const modalId = modalMatch[2];
+                        const type = trimmedLine.includes('Dialog') ? 'Dialog' : 'Modal';
+                        console.log(`Found Modal/Dialog: ${varName} -> ${modalId}`);
+                        
+                        modalVars[varName] = 'canvas-' + modalId;
+                        varTypes[varName] = type;
+                        addComponent(type, mainCanvas, modalId);
+                        found = true;
+                        return;
+                    }
+
+                    // 2. Detect variable declarations: Type var = new Type(...)
+                    let declMatch = trimmedLine.match(/([A-Z]\w+)\s+(\w+)\s*=\s*new\s+\1/);
+                    if (declMatch) {
+                        varTypes[declMatch[2]] = declMatch[1];
+                        console.log(`Tracked variable: ${declMatch[2]} as ${declMatch[1]}`);
+                    }
+                    
+                    // 3. Detect components added
+                    // Support: parent.add(new Comp(...)) or parent.add(var)
+                    let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)|(\w+))/);
+                    if (addMatch) {
+                        let parentVar = addMatch[1];
+                        if (parentVar.startsWith('this.')) parentVar = parentVar.substring(5);
+                        
+                        let compType = addMatch[2];
+                        let args = addMatch[3];
+                        const varName = addMatch[4];
+                        
+                        if (!compType && varName) {
+                            compType = varTypes[varName];
+                        }
+                        
+                        if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date', 'Modal', 'Dialog'].includes(compType)) {
+                            console.log(`Adding component ${compType} to ${parentVar} (var: ${varName})`);
+                            found = true;
+                            let targetCanvas = mainCanvas;
+                            if (modalVars[parentVar]) {
+                                let target = document.getElementById(modalVars[parentVar]);
+                                if (target) targetCanvas = target;
+                            }
+                            
+                            let initialProps = { id: (varName || compType.toLowerCase() + '_' + Date.now() + '_' + index), text: compType };
+                            if (args) {
+                                let argParts = args.split(',').map(a => a.trim());
+                                if (compType === 'Header') {
+                                    initialProps.level = argParts[0] || '2';
+                                    initialProps.text = (argParts[1] || 'Header').replace(/"/g, '');
+                                } else {
+                                    initialProps.text = argParts[0].replace(/"/g, '');
+                                }
+                            }
+                            
+                            addComponent(compType, targetCanvas, initialProps.id, initialProps);
+                        }
+                    }
+                });
+                
+                if (!found) {
+                    mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
+                }
+                switchDesignerTab('main');
+            } catch (err) {
+                console.error("Sync Error:", err);
+                if (window.javaConnector) window.javaConnector.showError("Error al sincronizar: " + err.message);
+            } finally {
+                isSyncing = false;
             }
-            switchDesignerTab('main');
-            isSyncing = false;
         }
     </script>
 </body>
