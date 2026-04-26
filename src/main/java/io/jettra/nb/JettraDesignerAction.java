@@ -18,7 +18,6 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle.Messages;
 import org.openide.windows.TopComponent;
 import org.openide.windows.WindowManager;
-
 @ActionID(
         category = "Project",
         id = "io.jettra.nb.JettraDesignerAction"
