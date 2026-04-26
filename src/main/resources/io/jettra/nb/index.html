@@ -407,8 +407,9 @@
             
             const el = document.createElement('div');
             el.className = 'canvas-item';
-            el.setAttribute('data-type', type);
             const compId = customId || (type.toLowerCase() + '_' + Date.now());
+            el.id = compId; // Ensure element has an ID for tracking
+            el.setAttribute('data-type', type);
             const props = initialProps || {id: compId, text: type};
             el.setAttribute('data-props', JSON.stringify(props));
             el.draggable = true;
@@ -427,7 +428,7 @@
                 case 'Label': content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`; break;
                 case 'Divide': content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>'; break;
                 case 'Separator': content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">'; break;
-                case 'Button': content = '<button class="j-btn j-btn-primary" type="button">Interactive Button</button>'; break;
+                case 'Button': content = `<button class="j-btn j-btn-primary" type="button">${p.text || 'Button'}</button>`; break;
                 case 'TextBox': content = '<input type="text" class="j-input" placeholder="TextBox..." onfocus="this.blur()">'; break;
                 case 'TextArea': content = '<textarea class="j-input" placeholder="TextArea..." rows="3" onfocus="this.blur()"></textarea>'; break;
                 case 'CheckBox': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" checked onfocus="this.blur()"/><label>CheckBox</label></div>'; break;
@@ -477,8 +478,13 @@
                     currentProps.id = mId;
                     el.setAttribute('data-props', JSON.stringify(currentProps));
                     break;
-                case 'FormGroup': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">Form Group</label></div>'; break;
-                default: content = `<div>${type} Component</div>`;
+                case 'FormGroup': content = `<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">${p.text || 'Form Group'}</label></div>`; break;
+                case 'Center': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.1); padding:20px;"></div>'; break;
+                case 'UIComponent': 
+                    const tag = p.text || 'div';
+                    content = `<${tag} class="canvas-container" style="min-height:20px; border:1px dotted rgba(255,255,255,0.2); padding:10px; font-family:monospace; font-size:10px; color:#666;">&lt;${tag}&gt;</${tag}>`;
+                    break;
+                default: content = `<div class="canvas-container" style="min-height:20px; border:1px solid #333; padding:5px;">${type} ${p.text || ''}</div>`;
             }
             
             el.innerHTML = content + '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
@@ -1008,10 +1014,20 @@
                     mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
                     return;
                 }
+
+                let varToElementId = {};
+                let varTypes = { 'center': 'Center' }; // Pre-populate common variables
+                let varProps = { 'center': { id: 'canvas', text: 'Center' } };
+                let modalVars = {};
+                
                 const lines = code.split('\n');
                 let found = false;
-                let modalVars = {}; // { varName: canvasId }
-                let varTypes = {}; // { varName: compType }
+
+                // Create a temporary container for elements not yet on canvas
+                let orphansContainer = document.createElement('div');
+                orphansContainer.style.display = 'none';
+                orphansContainer.id = 'orphans-container';
+                document.body.appendChild(orphansContainer);
 
                 console.log(`Syncing ${lines.length} lines of code...`);
 
@@ -1019,74 +1035,161 @@
                     const trimmedLine = line.trim();
                     if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('import ') || trimmedLine.startsWith('package ')) return;
 
-                    // 1. Detect Modal/Dialog instantiation
-                    let modalMatch = trimmedLine.match(/(?:Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+(?:Modal|Dialog)|(?:\(\s*(?:Modal|Dialog)\s*\))?[\w.]+\.findComponent)\s*\("([^"]+)"\)/);
+                    // 1. Detect Modal/Dialog instantiation (handle packages)
+                    let modalMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?(Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?(?:Modal|Dialog)|(?:\(\s*(?:[a-zA-Z0-9_.]+\.)?(?:Modal|Dialog)\s*\))?[\w.]+\.findComponent)\s*\("([^"]+)"\)/);
                     if (!modalMatch) {
-                        modalMatch = trimmedLine.match(/(\w+)\s*=\s*new\s+(?:Modal|Dialog)\s*\("([^"]+)"\)/);
+                        modalMatch = trimmedLine.match(/(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?(Modal|Dialog)\s*\("([^"]+)"\)/);
                     }
 
                     if (modalMatch) {
-                        const varName = modalMatch[1];
-                        const modalId = modalMatch[2];
-                        const type = trimmedLine.includes('Dialog') ? 'Dialog' : 'Modal';
-                        console.log(`Found Modal/Dialog: ${varName} -> ${modalId}`);
+                        const isNewMatch = modalMatch.length === 4 && isNaN(modalMatch[1]);
+                        const type = isNewMatch ? modalMatch[1] : modalMatch[2];
+                        const varName = isNewMatch ? modalMatch[2] : modalMatch[1];
+                        const modalId = modalMatch[3];
                         
+                        console.log(`Found Modal/Dialog: ${varName} -> ${modalId}`);
                         modalVars[varName] = 'canvas-' + modalId;
                         varTypes[varName] = type;
+                        varToElementId[varName] = modalId;
+                        
                         addComponent(type, mainCanvas, modalId);
                         found = true;
                         return;
                     }
 
                     // 2. Detect variable declarations: Type var = new Type(...)
-                    let declMatch = trimmedLine.match(/([A-Z]\w+)\s+(\w+)\s*=\s*new\s+\1/);
-                    if (declMatch) {
-                        varTypes[declMatch[2]] = declMatch[1];
-                        console.log(`Tracked variable: ${declMatch[2]} as ${declMatch[1]}`);
+                    let declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1\s*\(([^)]*)\)/);
+                    if (!declMatch) {
+                         declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1/);
                     }
                     
-                    // 3. Detect components added
+                    if (declMatch) {
+                        const type = declMatch[1];
+                        const varName = declMatch[2];
+                        const args = declMatch[3] || "";
+                        varTypes[varName] = type;
+                        
+                        console.log(`Tracked variable: ${varName} as ${type}`);
+                        
+                        let props = { id: (varName || type.toLowerCase() + '_' + index), text: type };
+                        if (args) {
+                             let argParts = args.split(',').map(a => a.trim());
+                             if (type === 'Header') {
+                                 props.level = argParts[0] || '2';
+                                 props.text = (argParts[1] || 'Header').replace(/"/g, '');
+                             } else {
+                                 props.text = argParts[0].replace(/"/g, '');
+                             }
+                        }
+                        varProps[varName] = props;
+                        
+                        // Create as orphan immediately if it's a container to allow adding kids before it's on canvas
+                        const containerTypes = ['Div', 'Panel', 'Card', 'Grid', 'Board', 'FormGroup', 'Center'];
+                        if (containerTypes.includes(type)) {
+                             addComponent(type, orphansContainer, props.id, props);
+                             varToElementId[varName] = props.id;
+                        }
+                        return;
+                    }
+
+                    // 3. Detect property settings: var.setStyle(...), var.setProperty(...)
+                    let styleMatch = trimmedLine.match(/([\w.]+)\.setStyle\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/);
+                    if (styleMatch) {
+                        let vName = styleMatch[1];
+                        if (vName.startsWith('this.')) vName = vName.substring(5);
+                        let elId = varToElementId[vName];
+                        if (elId) {
+                            let el = document.getElementById(elId);
+                            if (el) {
+                                let target = el.querySelector('.j-component, .j-btn, h1, h2, h3, h4, h5, h6, p, span, label, div.canvas-container');
+                                if (target) target.style[styleMatch[2]] = styleMatch[3];
+                            }
+                        }
+                    }
+                    
+                    let propMatch = trimmedLine.match(/([\w.]+)\.setProperty\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/);
+                    if (propMatch) {
+                        let vName = propMatch[1];
+                        if (vName.startsWith('this.')) vName = vName.substring(5);
+                        let elId = varToElementId[vName];
+                        if (elId) {
+                            let el = document.getElementById(elId);
+                            if (el && propMatch[2] === 'onclick') {
+                                let target = el.querySelector('.j-btn, .j-component, a, button');
+                                if (target) {
+                                    target.title = "Action: " + propMatch[3];
+                                    target.style.border = "1px dashed var(--jettra-accent)";
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 4. Detect components added
                     // Support: parent.add(new Comp(...)) or parent.add(var)
-                    let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)|(\w+))/);
+                    let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)|(\w+))/);
                     if (addMatch) {
                         let parentVar = addMatch[1];
                         if (parentVar.startsWith('this.')) parentVar = parentVar.substring(5);
                         
                         let compType = addMatch[2];
                         let args = addMatch[3];
-                        const varName = addMatch[4];
+                        const childVarName = addMatch[4];
                         
-                        if (!compType && varName) {
-                            compType = varTypes[varName];
+                        if (!compType && childVarName) {
+                            compType = varTypes[childVarName];
                         }
                         
                         if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date', 'Modal', 'Dialog'].includes(compType)) {
-                            console.log(`Adding component ${compType} to ${parentVar} (var: ${varName})`);
+                            console.log(`Adding component ${compType} to ${parentVar} (var: ${childVarName})`);
                             found = true;
                             let targetCanvas = mainCanvas;
+                            
                             if (modalVars[parentVar]) {
                                 let target = document.getElementById(modalVars[parentVar]);
                                 if (target) targetCanvas = target;
-                            }
-                            
-                            let initialProps = { id: (varName || compType.toLowerCase() + '_' + Date.now() + '_' + index), text: compType };
-                            if (args) {
-                                let argParts = args.split(',').map(a => a.trim());
-                                if (compType === 'Header') {
-                                    initialProps.level = argParts[0] || '2';
-                                    initialProps.text = (argParts[1] || 'Header').replace(/"/g, '');
-                                } else {
-                                    initialProps.text = argParts[0].replace(/"/g, '');
+                            } else if (parentVar === 'center') {
+                                targetCanvas = mainCanvas;
+                            } else if (varToElementId[parentVar]) {
+                                let parentEl = document.getElementById(varToElementId[parentVar]);
+                                if (parentEl) {
+                                    targetCanvas = parentEl.querySelector('.canvas-container') || parentEl;
                                 }
                             }
                             
-                            addComponent(compType, targetCanvas, initialProps.id, initialProps);
+                            if (childVarName && varToElementId[childVarName]) {
+                                // Move existing orphan element to new parent
+                                let childEl = document.getElementById(varToElementId[childVarName]);
+                                if (childEl) {
+                                    targetCanvas.appendChild(childEl);
+                                    const placeholder = targetCanvas.querySelector('.canvas-placeholder');
+                                    if (placeholder) placeholder.style.display = 'none';
+                                }
+                            } else {
+                                // Create new element
+                                let props = varProps[childVarName] || { id: (childVarName || compType.toLowerCase() + '_' + index), text: compType };
+                                if (args) {
+                                    let argParts = args.split(',').map(a => a.trim());
+                                    if (compType === 'Header') {
+                                        props.level = argParts[0] || '2';
+                                        props.text = (argParts[1] || 'Header').replace(/"/g, '');
+                                    } else {
+                                        props.text = argParts[0].replace(/"/g, '');
+                                    }
+                                }
+                                addComponent(compType, targetCanvas, props.id, props);
+                                if (childVarName) varToElementId[childVarName] = props.id;
+                            }
                         }
                     }
                 });
                 
+                // Cleanup orphans and remove from DOM
+                if (orphansContainer.parentNode) {
+                    orphansContainer.parentNode.removeChild(orphansContainer);
+                }
+                
                 if (!found) {
-                    mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java.</div>';
+                    mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java o estructura no soportada.</div>';
                 }
                 switchDesignerTab('main');
             } catch (err) {
