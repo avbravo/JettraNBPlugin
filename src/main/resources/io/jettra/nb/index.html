@@ -92,9 +92,59 @@
         .designer-tab-close { opacity: 0.5; font-weight: bold; font-size: 14px; }
         .designer-tab-close:hover { color: #ff4444; opacity: 1; }
         
-        .canvas-viewport { display: none; height: 100%; overflow: auto; position: relative; }
+        .canvas-viewport { display: none; height: 100%; }
         .canvas-viewport.active { display: block; }
         
+        .canvas-item { 
+            position: relative; 
+            padding: 10px; 
+            margin-bottom: 10px; 
+            background: rgba(255,255,255,0.02); 
+            border: 1px solid transparent; 
+            border-radius: 6px; 
+            transition: all 0.2s;
+        }
+        .canvas-item:hover { border-color: rgba(0,255,255,0.3); background: rgba(255,255,255,0.05); }
+        .canvas-item.selected { border-color: var(--jettra-accent); background: rgba(0,255,255,0.05); box-shadow: 0 0 10px rgba(0,255,255,0.1); }
+        
+        .canvas-container { min-height: 40px; padding: 10px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; margin-top: 5px; }
+        
+        .delete-tool { 
+            position: absolute; 
+            top: -8px; 
+            right: -8px; 
+            background: #f85149; 
+            color: white; 
+            width: 18px; 
+            height: 18px; 
+            border-radius: 50%; 
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .canvas-item:hover .delete-tool { display: flex; }
+
+        .j-component { display: inline-block; width: 100%; box-sizing: border-box; }
+        
+        .modal-placeholder-box { 
+            padding: 15px; 
+            border: 1px solid var(--jettra-accent); 
+            border-radius: 12px; 
+            background: rgba(0,255,255,0.05); 
+            cursor: pointer; 
+            min-width: 150px; 
+            text-align: center; 
+            transition: all 0.2s;
+        }
+        .modal-placeholder-box:hover { 
+            background: rgba(0,255,255,0.1); 
+            box-shadow: 0 0 15px rgba(0,255,255,0.2); 
+            transform: scale(1.02);
+        }
+
         .sidebar-tab.active { color: var(--jettra-accent); border-bottom: 2px solid var(--jettra-accent); background: rgba(0,255,255,0.05); font-weight: bold; }
         .tab-content { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
         .tab-content.active { display: flex; }
@@ -167,7 +217,7 @@
             <div style="padding: 5px 10px; background: rgba(0,0,0,0.5); font-size: 11px; font-weight: bold; border-bottom: 1px solid var(--jettra-border); display: flex; justify-content: space-between; align-items: center;">
                 <span>Java Source Code</span>
                 <div style="display:flex; gap:5px;">
-                    <button class="j-btn" style="padding: 2px 8px; font-size: 10px; background: #21262d;" onclick="syncCodeToCanvas()">Sync to Canvas</button>
+                    <button class="j-btn j-btn-primary" style="padding: 4px 12px; font-size: 11px; font-weight: bold; box-shadow: 0 0 10px rgba(0,255,255,0.2);" onclick="syncCodeToCanvas()">Sync to Canvas</button>
                     <button class="j-btn j-btn-primary" style="padding: 2px 8px; font-size: 10px; display: flex; align-items: center; gap: 4px;" onclick="saveGeneratedCode()">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         Save to File
@@ -196,6 +246,47 @@
         
         let designerTabs = [{ id: 'main', title: 'Main Page' }];
         let activeDesignerTab = 'main';
+
+        function tabTo(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelector(`[onclick="tabTo('${id}')"]`).classList.add('active');
+        }
+
+        // Helper to parse balanced arguments (handles nested commas and strings)
+        function parseBalancedArgs(str) {
+            const args = [];
+            let current = '';
+            let depth = 0;
+            let inString = false;
+            let quoteChar = '';
+
+            for (let i = 0; i < str.length; i++) {
+                const char = str[i];
+                if (char === '"' || char === "'") {
+                    if (!inString) {
+                        inString = true;
+                        quoteChar = char;
+                    } else if (char === quoteChar) {
+                        inString = false;
+                    }
+                }
+
+                if (!inString) {
+                    if (char === '(') depth++;
+                    if (char === ')') depth--;
+                    if (char === ',' && depth === 0) {
+                        args.push(current.trim());
+                        current = '';
+                        continue;
+                    }
+                }
+                current += char;
+            }
+            if (current) args.push(current.trim());
+            return args;
+        }
 
         function switchDesignerTab(id) {
             activeDesignerTab = id;
@@ -231,7 +322,7 @@
             viewport.id = 'viewport-' + modalId;
             viewport.className = 'canvas-viewport';
             viewport.innerHTML = `
-                <div id="canvas-${modalId}" class="canvas-drop-area canvas-container" style="min-height: 100%; padding: 20px;" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div id="canvas-${modalId}" class="canvas-drop-area" style="min-height: 100%; padding: 20px;" ondrop="drop(event)" ondragover="allowDrop(event)">
                     <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Modal Content: Drag components here</div>
                 </div>
             `;
@@ -256,6 +347,134 @@
                 }
             }
             updateCode();
+        }
+
+        function addDatatableColumn() {
+            if (!selectedElement) return;
+            const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
+            props.headers = props.headers || ['Col 1', 'Col 2'];
+            props.headers.push('New Column');
+            selectedElement.setAttribute('data-props', JSON.stringify(props));
+            refreshComponentPreview(selectedElement);
+            updateInspector();
+            updateCode();
+        }
+
+        function removeDatatableColumn(index) {
+            if (!selectedElement) return;
+            const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
+            props.headers = props.headers || ['Col 1', 'Col 2'];
+            props.headers.splice(index, 1);
+            selectedElement.setAttribute('data-props', JSON.stringify(props));
+            refreshComponentPreview(selectedElement);
+            updateInspector();
+            updateCode();
+        }
+
+        function updateDatatableColumn(index, value) {
+            if (!selectedElement) return;
+            const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
+            props.headers = props.headers || ['Col 1', 'Col 2'];
+            props.headers[index] = value;
+            selectedElement.setAttribute('data-props', JSON.stringify(props));
+            refreshComponentPreview(selectedElement);
+            updateCode();
+        }
+
+        function refreshComponentPreview(el) {
+            const type = el.getAttribute('data-type');
+            const p = JSON.parse(el.getAttribute('data-props') || '{}');
+            
+            let content = '';
+            switch(type) {
+                case 'Clock': content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>'; break;
+                case 'Header': 
+                    const hLevel = p.level || '2';
+                    const hText = p.text || 'Header';
+                    content = `<h${hLevel} style="margin:0; color:var(--jettra-text);">${hText}</h${hLevel}>`; 
+                    break;
+                case 'Paragraph': content = `<p style="margin:0; color:var(--jettra-text);">${p.text || 'Sample text...'}</p>`; break;
+                case 'Span': content = `<span style="color:var(--jettra-text);">${p.text || 'Span Text'}</span>`; break;
+                case 'Label': content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`; break;
+                case 'Divide': content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>'; break;
+                case 'Separator': content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">'; break;
+                case 'Button': content = `<button class="j-btn j-btn-primary" type="button">${p.text || 'Button'}</button>`; break;
+                case 'TextBox': content = '<input type="text" class="j-input" placeholder="TextBox..." onfocus="this.blur()">'; break;
+                case 'TextArea': content = '<textarea class="j-input" placeholder="TextArea..." rows="3" onfocus="this.blur()"></textarea>'; break;
+                case 'CheckBox': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" checked onfocus="this.blur()"/><label>CheckBox</label></div>'; break;
+                case 'RadioButton': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="radio" checked onfocus="this.blur()"/><label>RadioButton</label></div>'; break;
+                case 'RadioGroupButton': content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">Radio Group</label></div>'; break;
+                case 'CheckBoxGroup': content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">CheckBox Group</label></div>'; break;
+                case 'ScheduleControl': content = '<input type="datetime-local" class="j-input" onfocus="this.blur()"/>'; break;
+                case 'SelectOne': content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select</label><select class="j-input" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectOne</span>'; break;
+                case 'SelectMany': content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select Multiple</label><select class="j-input" multiple="multiple" style="height:80px" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectMany</span>'; break;
+                case 'SelectOneIcon': content = '<select class="j-input" onfocus="this.blur()"><option>Icon Option 1...</option></select><span style="display:none">SelectOneIcon</span>'; break;
+                case 'Spinner': content = '<div class="j-spinner-wrapper" style="display:inline-flex; align-items:center; border:1px solid var(--jettra-border); border-radius:8px; background:rgba(0,0,0,0.3); overflow:hidden;"><button type="button" class="j-spinner-btn j-spinner-minus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">-</button><div class="j-spinner-display" style="min-width:60px;text-align:center;font-family:monospace;font-size:1.1rem;color:var(--jettra-text);">0</div><button type="button" class="j-spinner-btn j-spinner-plus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">+</button></div>'; break;
+                case 'ToggleSwitch': content = '<div style="display:flex; align-items:center; gap:8px;"><div style="width:40px;height:20px;background:var(--jettra-accent);border-radius:10px;position:relative;"><div style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;"></div></div><label>ToggleSwitch</label></div>'; break;
+                case 'FileUpload': content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><span>Click or drag files here to upload</span></div>'; break;
+                case 'FolderSelector': content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><span>Select Directory</span></div>'; break;
+                case 'OTPValidator': content = '<div class="j-component" style="display:flex; justify-content:center; gap:5px; padding:10px;"><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/></div>'; break;
+                case 'Catcha': content = '<div class="j-component" style="padding:10px; border:1px solid #aaa; border-radius:4px; display:inline-flex; align-items:center; gap:10px; background:#f9f9f9;"><input type="checkbox" disabled/> <span style="color:#333; font-family:sans-serif">I&#39;m not a robot</span></div>'; break;
+                case 'CreditCard': content = '<div class="j-component" style="padding:15px; border:1px solid rgba(0,255,255,0.2); border-radius:12px; background:linear-gradient(145deg, #1e293b, #0f172a); min-height:100px; display:flex; flex-direction:column; gap:10px; width:280px;"><div style="font-family:monospace; font-size:16px; color:#fff; letter-spacing:2px; margin-top:20px;">**** **** **** ****</div><div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:10px;"><span class="cc-name-mock">NAME SURNAME</span><span>MM/YY</span></div><button class="j-btn j-btn-primary" style="margin-top:10px; width:100%; border-radius:8px; padding:10px;" disabled>Pay Now</button><div class="canvas-container" style="min-height:30px; border:1px dashed rgba(255,255,255,0.1); margin-top:5px; padding:5px;"></div></div>'; break;
+                case 'Link': content = '<a href="javascript:void(0)" style="color:var(--jettra-accent); text-decoration:underline;"><span>Link Text</span></a>'; break;
+                case 'Menu': content = '<div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:inline-block;"><div style="padding:8px 15px; cursor:pointer;"><span>Menu Item</span></div></div>'; break;
+                case 'MenuBar': content = '<div class="canvas-container" style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:flex; gap:15px; min-height:45px; border:1px dashed rgba(255,255,255,0.2);"></div>'; break;
+                case 'MenuItem': content = '<div class="j-component" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"><span>Menu Item</span></div>'; break;
+                case 'Loading': content = '<div class="j-loading" style="display:inline-flex; align-items:center; justify-content:center; padding:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--jettra-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg></div>'; break;
+                case 'Alert': content = '<div style="background:rgba(255,0,0,0.1); border-left:4px solid #ff4444; padding:15px; border-radius:4px; color:#ff4444; display:flex; align-items:center; gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Alert Message</span></div>'; break;
+                case 'Notification': content = '<div style="background:rgba(0,255,255,0.1); border:1px solid var(--jettra-accent); padding:15px; border-radius:8px; color:var(--jettra-text); max-width:300px; box-shadow:0 4px 12px rgba(0,0,0,0.3);"><span>Notification Message</span></div>'; break;
+                case 'Downloader': content = '<div style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download File</span></div>'; break;
+                case 'PDFViewer': content = '<div style="border:1px solid #aaa; background:#eee; color:#333; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><span>PDF Document Preview</span></div>'; break;
+                case 'ViewMedia': content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>'; break;
+                case 'BarCode': content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>'; break;
+                case 'Carousel': content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>'; break;
+                case 'TabView': content = '<div style="border:1px solid rgba(0,255,255,0.2); border-radius:8px; overflow:hidden;"><div style="display:flex; background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(0,255,255,0.2);" class="tab-headers"><span style="padding:10px; color:#aaa; font-size:11px;">[Tab Headers]</span></div><div class="canvas-container" style="padding:10px; min-height:100px; background:rgba(0,255,255,0.02);"></div></div>'; break;
+                case 'Tab': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>'; break;
+                case 'Tree': content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>'; break;
+                case 'TreeItem': content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>'; break;
+                case 'Datatable': 
+                    const headers = p.headers || ['Col 1', 'Col 2'];
+                    content = `
+                        <table style="width:100%;border-collapse:collapse;border:1px solid var(--jettra-border);">
+                            <tr style="background:rgba(0,255,255,0.1);border-bottom:1px solid var(--jettra-border);">
+                                ${headers.map(h => `<th style="padding:8px;text-align:left;">${h}</th>`).join('')}
+                            </tr>
+                            <tr>
+                                ${headers.map(() => `<td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row Data</td>`).join('')}
+                            </tr>
+                        </table>`; 
+                    break;
+                case 'Panel': content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>'; break;
+                case 'Div': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px; position:relative;">Div Container</div>'; break;
+                case 'Modal':
+                case 'Dialog':
+                    const mId = p.id || 'modal_unknown';
+                    content = `<div class="modal-placeholder-box" onclick="switchDesignerTab('${mId}')">
+                        <div style="font-weight:bold; color:var(--jettra-accent); margin-bottom:5px; font-size:14px;">${type}</div>
+                        <div style="font-size:10px; opacity:0.7; color:#fff;">Click to edit content</div>
+                    </div>`;
+                    break;
+                case 'FormGroup': content = `<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">${p.text || 'Form Group'}</label></div>`; break;
+                case 'Center': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.1); padding:20px;"></div>'; break;
+                case 'UIComponent': 
+                    const tag = p.text || 'div';
+                    content = `<${tag} class="canvas-container" style="min-height:20px; border:1px dotted rgba(255,255,255,0.2); padding:10px; font-family:monospace; font-size:10px; color:#666;">&lt;${tag}&gt;</${tag}>`;
+                    break;
+                default: content = `<div class="canvas-container" style="min-height:20px; border:1px solid #333; padding:5px;">${type} ${p.text || ''}</div>`;
+            }
+
+            // Preservation of children for container components
+            const canvasContainer = el.querySelector('.canvas-container');
+            if (canvasContainer) {
+                const children = Array.from(canvasContainer.childNodes);
+                el.innerHTML = content + '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                const newContainer = el.querySelector('.canvas-container');
+                if (newContainer) {
+                    children.forEach(child => newContainer.appendChild(child));
+                }
+            } else {
+                el.innerHTML = content + '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+            }
         }
 
         // Setup Palette
@@ -462,13 +681,24 @@
                 case 'Tab': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>'; break;
                 case 'Tree': content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>'; break;
                 case 'TreeItem': content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>'; break;
-                case 'Datatable': content = '<table style="width:100%;border-collapse:collapse;border:1px solid var(--jettra-border);"><tr style="background:rgba(0,255,255,0.1);border-bottom:1px solid var(--jettra-border);"><th style="padding:8px;text-align:left;">Col 1</th><th style="padding:8px;text-align:left;">Col 2</th></tr><tr><td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row 1</td><td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row 1</td></tr></table>'; break;
+                case 'Datatable': 
+                    const headers = p.headers || ['Col 1', 'Col 2'];
+                    content = `
+                        <table style="width:100%;border-collapse:collapse;border:1px solid var(--jettra-border);">
+                            <tr style="background:rgba(0,255,255,0.1);border-bottom:1px solid var(--jettra-border);">
+                                ${headers.map(h => `<th style="padding:8px;text-align:left;">${h}</th>`).join('')}
+                            </tr>
+                            <tr>
+                                ${headers.map(() => `<td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row Data</td>`).join('')}
+                            </tr>
+                        </table>`; 
+                    break;
                 case 'Panel': content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>'; break;
-                case 'Div': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px;">Div Container</div>'; break;
+                case 'Div': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px; position:relative;">Div Container</div>'; break;
                 case 'Modal':
                 case 'Dialog':
                     const mId = customId || ('modal_' + Date.now());
-                    content = `<div style="padding:15px; border:1px solid var(--jettra-accent); border-radius:12px; background:rgba(0,255,255,0.05); cursor:pointer; min-width:150px; text-align:center;" onclick="switchDesignerTab('${mId}')">
+                    content = `<div class="modal-placeholder-box" onclick="switchDesignerTab('${mId}')">
                         <div style="font-weight:bold; color:var(--jettra-accent); margin-bottom:5px; font-size:14px;">${type}</div>
                         <div style="font-size:10px; opacity:0.7; color:#fff;">Click to edit content</div>
                     </div>`;
@@ -629,16 +859,20 @@
                 `;
             }
 
-            if (type === 'Button') {
+            if (type === 'Datatable') {
+                const headers = props.headers || ['Col 1', 'Col 2'];
                 html += `
                     <div class="inspector-row">
-                        <span class="inspector-label">Style</span>
-                        <select class="inspector-input" onchange="updateProp('btnStyle', this.value)">
-                            <option value="PRIMARY" ${props.btnStyle === 'PRIMARY' ? 'selected' : ''}>PRIMARY</option>
-                            <option value="SECONDARY" ${props.btnStyle === 'SECONDARY' ? 'selected' : ''}>SECONDARY</option>
-                            <option value="DANGER" ${props.btnStyle === 'DANGER' ? 'selected' : ''}>DANGER</option>
-                            <option value="SUCCESS" ${props.btnStyle === 'SUCCESS' ? 'selected' : ''}>SUCCESS</option>
-                        </select>
+                        <span class="inspector-label">Columns</span>
+                        <div id="datatable-columns-list" style="display:flex; flex-direction:column; gap:5px; margin-bottom:10px;">
+                            ${headers.map((h, i) => `
+                                <div style="display:flex; gap:5px;">
+                                    <input type="text" class="inspector-input" value="${h}" onchange="updateDatatableColumn(${i}, this.value)">
+                                    <button class="j-btn j-btn-danger" style="padding:0 8px;" onclick="removeDatatableColumn(${i})">&times;</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="j-btn j-btn-primary" style="width:100%;" onclick="addDatatableColumn()">+ Add Column</button>
                     </div>
                 `;
             }
@@ -791,7 +1025,8 @@
                         }
                         out += `);\n`;
                     } else if (type === 'Datatable') {
-                        out += `        ${parentName}.add(new Datatable().addHeaderRow("Col 1", "Col 2")${chainProps(props, type)});\n`;
+                        const hRow = (props.headers || ["Col 1", "Col 2"]).map(h => `"${h}"`).join(", ");
+                        out += `        ${parentName}.add(new Datatable().addHeaderRow(${hRow})${chainProps(props, type)});\n`;
                     } else {
                         out += `        ${parentName}.add(new ${type}("${props.text || vName}")${chainProps(props, type)});\n`;
                     }
@@ -1015,9 +1250,9 @@
                     return;
                 }
 
-                let varToElementId = {};
-                let varTypes = { 'center': 'Center' }; // Pre-populate common variables
                 let varProps = { 'center': { id: 'canvas', text: 'Center' } };
+                let varTypes = { 'center': 'Center' };
+                let varToElementId = { 'center': 'canvas' }; 
                 let modalVars = {};
                 
                 const lines = code.split('\n');
@@ -1031,8 +1266,11 @@
 
                 console.log(`Syncing ${lines.length} lines of code...`);
 
+                let lastVar = null;
+
                 lines.forEach((line, index) => {
-                    const trimmedLine = line.trim();
+                    try {
+                        const trimmedLine = line.trim();
                     if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('import ') || trimmedLine.startsWith('package ')) return;
 
                     // 1. Detect Modal/Dialog instantiation (handle packages)
@@ -1051,6 +1289,7 @@
                         modalVars[varName] = 'canvas-' + modalId;
                         varTypes[varName] = type;
                         varToElementId[varName] = modalId;
+                        lastVar = varName;
                         
                         addComponent(type, mainCanvas, modalId);
                         found = true;
@@ -1060,7 +1299,7 @@
                     // 2. Detect variable declarations: Type var = new Type(...)
                     let declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1\s*\(([^)]*)\)/);
                     if (!declMatch) {
-                         declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1/);
+                         declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1(?:\s*\(([^)]*)\))?\s*\{?/);
                     }
                     
                     if (declMatch) {
@@ -1082,9 +1321,10 @@
                              }
                         }
                         varProps[varName] = props;
+                        lastVar = varName;
                         
                         // Create as orphan immediately if it's a container to allow adding kids before it's on canvas
-                        const containerTypes = ['Div', 'Panel', 'Card', 'Grid', 'Board', 'FormGroup', 'Center'];
+                        const containerTypes = ['Div', 'Panel', 'Card', 'Grid', 'Board', 'FormGroup', 'Center', 'UIComponent', 'Modal', 'Dialog'];
                         if (containerTypes.includes(type)) {
                              addComponent(type, orphansContainer, props.id, props);
                              varToElementId[varName] = props.id;
@@ -1093,40 +1333,78 @@
                     }
 
                     // 3. Detect property settings: var.setStyle(...), var.setProperty(...)
-                    let styleMatch = trimmedLine.match(/([\w.]+)\.setStyle\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/);
-                    if (styleMatch) {
-                        let vName = styleMatch[1];
-                        if (vName.startsWith('this.')) vName = vName.substring(5);
-                        let elId = varToElementId[vName];
-                        if (elId) {
-                            let el = document.getElementById(elId);
-                            if (el) {
-                                let target = el.querySelector('.j-component, .j-btn, h1, h2, h3, h4, h5, h6, p, span, label, div.canvas-container');
-                                if (target) target.style[styleMatch[2]] = styleMatch[3];
-                            }
+                    let vNameForStyle = null;
+                    if (trimmedLine.startsWith('.')) {
+                        vNameForStyle = lastVar;
+                    } else if (trimmedLine.includes('.setStyle') || trimmedLine.includes('.setProperty')) {
+                        vNameForStyle = trimmedLine.split('.')[0].trim();
+                        // Extract actual variable name if it's a declaration (e.g. "Div container = container")
+                        if (vNameForStyle.includes(' ')) {
+                             const parts = vNameForStyle.split(/\s+/);
+                             vNameForStyle = parts[parts.length - 1];
                         }
                     }
-                    
-                    let propMatch = trimmedLine.match(/([\w.]+)\.setProperty\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/);
-                    if (propMatch) {
-                        let vName = propMatch[1];
-                        if (vName.startsWith('this.')) vName = vName.substring(5);
-                        let elId = varToElementId[vName];
-                        if (elId) {
-                            let el = document.getElementById(elId);
-                            if (el && propMatch[2] === 'onclick') {
-                                let target = el.querySelector('.j-btn, .j-component, a, button');
-                                if (target) {
-                                    target.title = "Action: " + propMatch[3];
-                                    target.style.border = "1px dashed var(--jettra-accent)";
+
+                    if (vNameForStyle) {
+                        if (vNameForStyle.startsWith('io.jettra.wui.complex.')) vNameForStyle = vNameForStyle.substring(22);
+                        if (vNameForStyle.startsWith('io.jettra.wui.components.')) vNameForStyle = vNameForStyle.substring(25);
+                        if (vNameForStyle.startsWith('this.')) vNameForStyle = vNameForStyle.substring(5);
+                        
+                        // Extract all setStyle calls
+                        const styleRegex = /\.setStyle\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
+                        let sMatch;
+                        while ((sMatch = styleRegex.exec(trimmedLine)) !== null) {
+                            let elId = varToElementId[vNameForStyle];
+                            if (elId) {
+                                let el = document.getElementById(elId);
+                                if (el) {
+                                    let target = el.querySelector('.j-component, .j-btn, h1, h2, h3, h4, h5, h6, p, span, label, .canvas-container');
+                                    if (target) target.style[sMatch[1]] = sMatch[2];
                                 }
                             }
                         }
+                        
+                        // Extract all setProperty calls
+                        const propRegex = /\.setProperty\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
+                        let pMatch;
+                        while ((pMatch = propRegex.exec(trimmedLine)) !== null) {
+                            let elId = varToElementId[vNameForStyle];
+                            if (elId) {
+                                let el = document.getElementById(elId);
+                                if (el) {
+                                    if (pMatch[1] === 'onclick') {
+                                        let target = el.querySelector('.j-btn, .j-component, a, button');
+                                        if (target) {
+                                            target.title = "Action: " + pMatch[2];
+                                            target.style.border = "1px dashed var(--jettra-accent)";
+                                        }
+                                    } else if (pMatch[1] === 'text' || pMatch[1] === 'value') {
+                                        let target = el.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, .j-btn, .canvas-container');
+                                        if (target) target.innerText = pMatch[2];
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Extract .setText calls
+                        const textRegex = /\.setText\s*\(\s*"([^"]+)"\s*\)/g;
+                        let tMatch;
+                        while ((tMatch = textRegex.exec(trimmedLine)) !== null) {
+                            let elId = varToElementId[vNameForStyle];
+                            if (elId) {
+                                let el = document.getElementById(elId);
+                                if (el) {
+                                    let target = el.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, .j-btn, .canvas-container');
+                                    if (target) target.innerText = tMatch[1];
+                                }
+                            }
+                        }
+                        lastVar = vNameForStyle;
                     }
                     
                     // 4. Detect components added
                     // Support: parent.add(new Comp(...)) or parent.add(var)
-                    let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)|(\w+))/);
+                    let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{?|(\w+))/);
                     if (addMatch) {
                         let parentVar = addMatch[1];
                         if (parentVar.startsWith('this.')) parentVar = parentVar.substring(5);
@@ -1139,8 +1417,8 @@
                             compType = varTypes[childVarName];
                         }
                         
-                        if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date', 'Modal', 'Dialog'].includes(compType)) {
-                            console.log(`Adding component ${compType} to ${parentVar} (var: ${childVarName})`);
+                        if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date'].includes(compType)) {
+                            console.log(`Adding/Moving component ${compType} to ${parentVar} (var: ${childVarName})`);
                             found = true;
                             let targetCanvas = mainCanvas;
                             
@@ -1154,6 +1432,16 @@
                                 if (parentEl) {
                                     targetCanvas = parentEl.querySelector('.canvas-container') || parentEl;
                                 }
+                            }
+                            
+                            // If the parent itself is inside a modal tab, children should follow
+                            let tempParent = targetCanvas;
+                            while (tempParent && tempParent !== mainCanvas && tempParent !== document.body) {
+                                if (tempParent.classList.contains('canvas-drop-area') && tempParent.id.startsWith('canvas-')) {
+                                    // Already in a modal canvas
+                                    break;
+                                }
+                                tempParent = tempParent.parentElement;
                             }
                             
                             if (childVarName && varToElementId[childVarName]) {
@@ -1172,6 +1460,8 @@
                                     if (compType === 'Header') {
                                         props.level = argParts[0] || '2';
                                         props.text = (argParts[1] || 'Header').replace(/"/g, '');
+                                    } else if (compType === 'Datatable') {
+                                        // Skip table header args for now
                                     } else {
                                         props.text = argParts[0].replace(/"/g, '');
                                     }
@@ -1179,7 +1469,40 @@
                                 addComponent(compType, targetCanvas, props.id, props);
                                 if (childVarName) varToElementId[childVarName] = props.id;
                             }
+                            lastVar = parentVar;
                         }
+                    }
+
+                    // 5. Detect addHeaderRow for Datatable
+                    const headerRowMatch = trimmedLine.match(/([\w.]+)\.addHeaderRow\s*\(([^)]+)\)/);
+                    if (headerRowMatch) {
+                         const vName = headerRowMatch[1];
+                         const elId = varToElementId[vName];
+                         if (elId) {
+                             const el = document.getElementById(elId);
+                             if (el) {
+                                 const table = el.querySelector('table');
+                                 if (table) {
+                                     const argsRaw = headerRowMatch[2];
+                                      const args = parseBalancedArgs(argsRaw).map(a => {
+                                          const mProp = a.match(/msg\.getProperty\s*\(\s*(?:"[^"]+"|'[^']+')\s*,\s*(?:"([^"]+)"|'([^']+)')\s*\)/);
+                                          if (mProp) return mProp[1] || mProp[2];
+                                          return a.replace(/["']/g, '').trim();
+                                      });
+                                      
+                                      const props = JSON.parse(el.getAttribute('data-props') || '{}');
+                                      props.headers = args;
+                                      el.setAttribute('data-props', JSON.stringify(props));
+                                     const header = table.querySelector('tr');
+                                     if (header) {
+                                         header.innerHTML = args.map(a => `<th style="padding:8px;text-align:left;">${a}</th>`).join('');
+                                     }
+                                 }
+                             }
+                         }
+                        }
+                    } catch (lineErr) {
+                        console.warn(`Error parsing line ${index + 1}: ${lineErr.message}`);
                     }
                 });
                 
@@ -1191,7 +1514,13 @@
                 if (!found) {
                     mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java o estructura no soportada.</div>';
                 }
-                switchDesignerTab('main');
+                
+                // Only switch to main if we're not already on a valid tab that was just recreated
+                if (activeDesignerTab === 'main' || !document.getElementById('tab-' + activeDesignerTab)) {
+                    switchDesignerTab('main');
+                } else {
+                    switchDesignerTab(activeDesignerTab);
+                }
             } catch (err) {
                 console.error("Sync Error:", err);
                 if (window.javaConnector) window.javaConnector.showError("Error al sincronizar: " + err.message);
