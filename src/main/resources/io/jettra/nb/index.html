@@ -1255,16 +1255,24 @@
                 let varToElementId = { 'center': 'canvas' }; 
                 let modalVars = {};
                 
-                const lines = code.split('\n');
-                let found = false;
+                const rawLines = code.split('\n');
+                let lines = [];
+                rawLines.forEach(line => {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('.') && lines.length > 0) {
+                        lines[lines.length - 1] += ' ' + trimmed;
+                    } else {
+                        lines.push(line);
+                    }
+                });
 
-                // Create a temporary container for elements not yet on canvas
+                let found = false;
                 let orphansContainer = document.createElement('div');
                 orphansContainer.style.display = 'none';
                 orphansContainer.id = 'orphans-container';
                 document.body.appendChild(orphansContainer);
 
-                console.log(`Syncing ${lines.length} lines of code...`);
+                console.log(`Syncing ${lines.length} lines of code (after joining chains)...`);
 
                 let lastVar = null;
 
@@ -1293,7 +1301,6 @@
                         
                         addComponent(type, mainCanvas, modalId);
                         found = true;
-                        return;
                     }
 
                     // 2. Detect variable declarations: Type var = new Type(...)
@@ -1329,7 +1336,6 @@
                              addComponent(type, orphansContainer, props.id, props);
                              varToElementId[varName] = props.id;
                         }
-                        return;
                     }
 
                     // 3. Detect property settings: var.setStyle(...), var.setProperty(...)
@@ -1474,25 +1480,43 @@
                     }
 
                     // 5. Detect addHeaderRow for Datatable
-                    const headerRowMatch = trimmedLine.match(/([\w.]+)\.addHeaderRow\s*\(([^)]+)\)/);
-                    if (headerRowMatch) {
-                         const vName = headerRowMatch[1];
+                    const hRowIdx = trimmedLine.indexOf('.addHeaderRow(');
+                    if (hRowIdx !== -1) {
+                         let vName = null;
+                         const vDeclMatch = trimmedLine.substring(0, hRowIdx).match(/(\w+)\s*=\s*new\s+/);
+                         if (vDeclMatch) {
+                             vName = vDeclMatch[1];
+                         } else {
+                             const vSimpleMatch = trimmedLine.substring(0, hRowIdx).match(/(\w+)\s*$/);
+                             if (vSimpleMatch) vName = vSimpleMatch[1];
+                         }
+                         if (!vName || !varToElementId[vName]) vName = lastVar;
+
                          const elId = varToElementId[vName];
                          if (elId) {
                              const el = document.getElementById(elId);
                              if (el) {
                                  const table = el.querySelector('table');
                                  if (table) {
-                                     const argsRaw = headerRowMatch[2];
-                                      const args = parseBalancedArgs(argsRaw).map(a => {
-                                          const mProp = a.match(/msg\.getProperty\s*\(\s*(?:"[^"]+"|'[^']+')\s*,\s*(?:"([^"]+)"|'([^']+)')\s*\)/);
-                                          if (mProp) return mProp[1] || mProp[2];
-                                          return a.replace(/["']/g, '').trim();
-                                      });
-                                      
-                                      const props = JSON.parse(el.getAttribute('data-props') || '{}');
-                                      props.headers = args;
-                                      el.setAttribute('data-props', JSON.stringify(props));
+                                     // Extract balanced args
+                                     const argsStart = hRowIdx + 14;
+                                     let depth = 1;
+                                     let i = argsStart;
+                                     while (i < trimmedLine.length && depth > 0) {
+                                         if (trimmedLine[i] === '(') depth++;
+                                         if (trimmedLine[i] === ')') depth--;
+                                         i++;
+                                     }
+                                     const argsRaw = trimmedLine.substring(argsStart, i - 1);
+                                     const args = parseBalancedArgs(argsRaw).map(a => {
+                                         const mProp = a.match(/msg\.getProperty\s*\(\s*(?:"[^"]+"|'[^']+')\s*,\s*(?:"([^"]+)"|'([^']+)')\s*\)/);
+                                         if (mProp) return mProp[1] || mProp[2];
+                                         return a.replace(/["']/g, '').trim();
+                                     });
+                                     
+                                     const props = JSON.parse(el.getAttribute('data-props') || '{}');
+                                     props.headers = args;
+                                     el.setAttribute('data-props', JSON.stringify(props));
                                      const header = table.querySelector('tr');
                                      if (header) {
                                          header.innerHTML = args.map(a => `<th style="padding:8px;text-align:left;">${a}</th>`).join('');
@@ -1500,7 +1524,7 @@
                                  }
                              }
                          }
-                        }
+                    }
                     } catch (lineErr) {
                         console.warn(`Error parsing line ${index + 1}: ${lineErr.message}`);
                     }
