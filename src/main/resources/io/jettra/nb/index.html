@@ -5,95 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jettra Designer</title>
     <style>
-        :root { --jettra-accent: #0ff; --jettra-bg: #0d1117; --jettra-border: #30363d; --jettra-text: #c9d1d9; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--jettra-bg); color: var(--jettra-text); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 300px; background: #161b22; border-right: 1px solid var(--jettra-border); display: flex; flex-direction: column; overflow-y: auto; }
-        .topbar { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,255,255,0.05); border-bottom: 1px solid var(--jettra-border); }
+        :root { --jettra-accent: #00ffff; --jettra-bg: #0d1117; --jettra-border: #30363d; --jettra-text: #e6edf3; --jettra-accent-dim: rgba(0, 255, 255, 0.1); }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--jettra-bg); color: var(--jettra-text); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-size: 13px; }
+        .sidebar { width: 300px; background: #010409; border-right: 1px solid var(--jettra-border); display: flex; flex-direction: column; overflow-y: auto; }
+        .topbar { display: flex; align-items: center; gap: 10px; padding: 12px; background: #161b22; border-bottom: 1px solid var(--jettra-border); }
         .main-area { flex: 1; display: flex; flex-direction: column; }
-        .canvas-area { flex: 1; padding: 20px; position: relative; display: flex; flex-direction: column; overflow-y: auto; background: #010409; }
-        .canvas-drop-area { flex: 1; border: 2px dashed var(--jettra-border); border-radius: 8px; position: relative; padding: 20px; transition: all 0.3s; min-height: 500px; }
-        .canvas-drop-area.drag-over { border-color: var(--jettra-accent); background: rgba(0, 255, 255, 0.05); }
-        .code-area { flex: 0 0 30%; border-top: 1px solid var(--jettra-border); background: #161b22; display: flex; flex-direction: column; }
-        
-        /* Palette Styles */
-        .palette-category { margin-bottom: 20px; padding: 0 10px; }
-        .palette-cat-title { font-size: 10px; color: var(--jettra-accent); text-transform: uppercase; border-bottom: 1px solid rgba(0,255,255,0.1); padding-bottom: 5px; margin-bottom: 12px; font-weight: bold; letter-spacing: 1px; }
-        .palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)); gap: 10px; }
-        .palette-item { 
-            aspect-ratio: 1; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            background: rgba(255,255,255,0.03); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            border-radius: 8px; 
-            cursor: move; 
-            color: #8b949e; 
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
-            position: relative;
-        }
-        .palette-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
-        .palette-item:hover { 
-            background: rgba(0,255,255,0.1); 
-            border-color: var(--jettra-accent); 
-            color: var(--jettra-accent); 
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,255,255,0.15);
-        }
-        
-        /* Tooltip style */
-        [title]:hover::after {
-            content: attr(title);
-            position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1f2937;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            white-space: nowrap;
-            z-index: 1000;
-            border: 1px solid var(--jettra-border);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            pointer-events: none;
-        }
-        
-        .j-btn { padding: 8px 16px; background: #2ea043; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .j-btn:hover { background: #3fb950; }
-        .j-btn-primary { background: var(--jettra-accent); color: #000; font-weight: bold; }
-        .j-btn-danger { background: #f85149; }
-        
-        .j-input { width: 100%; padding: 6px; background: #010409; border: 1px solid var(--jettra-border); color: white; border-radius: 4px; margin-bottom: 5px; }
-        textarea.code-display { flex: 1; width: 100%; background: #010409; color: #a9b7c6; font-family: monospace; font-size: 12px; border: none; padding: 10px; resize: none; outline: none; }
-        
-        /* Project Explorer */
-        .explorer-item { font-size: 12px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
-        .explorer-item:hover { background: rgba(0,255,255,0.1); }
-        .file-model { color: #4ade80; }
-        .file-page { color: #facc15; }
-        
-        /* Property Inspector */
-        .property-inspector { flex: 0 0 250px; background: rgba(20,35,55,0.9); border-left: 1px solid var(--jettra-accent); padding: 15px; border-radius: 0; display: none; flex-direction: column; overflow-y: auto; z-index: 1000; }
-        .inspector-row { margin-bottom: 15px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border-left: 3px solid transparent; transition: all 0.3s; }
-        .inspector-row:hover { border-left-color: var(--jettra-accent); background: rgba(255,255,255,0.05); }
-        .inspector-label { display: block; font-size: 11px; color: #9aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .inspector-input { width: 100%; background: #0a0f15; border: 1px solid #334155; color: #fff; padding: 8px; border-radius: 6px; font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;}
-        .inspector-input:focus { border-color: var(--jettra-accent); box-shadow: 0 0 0 1px rgba(0,255,255,0.2); }
-        .icon-preset { transition: all 0.2s; border-radius: 4px; font-size: 18px; line-height: 1.5; }
-        .icon-preset:hover { background: rgba(0,255,255,0.1); transform: scale(1.2); border-color: var(--jettra-accent) !important; }
-        
-        /* Designer Tabs */
-        .designer-tabs { display: flex; background: #0d1117; border-bottom: 1px solid var(--jettra-border); padding: 0 10px; gap: 5px; height: 35px; align-items: flex-end; }
-        .designer-tab { padding: 5px 15px; background: rgba(255,255,255,0.05); color: #8b949e; border: 1px solid var(--jettra-border); border-bottom: none; border-radius: 6px 6px 0 0; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; position: relative; bottom: -1px; }
-        .designer-tab.active { background: #161b22; color: var(--jettra-accent); border-color: var(--jettra-accent); border-bottom: 1px solid #161b22; z-index: 2; font-weight: bold; }
-        .designer-tab:hover:not(.active) { background: rgba(255,255,255,0.1); color: #fff; }
-        .designer-tab-close { opacity: 0.5; font-weight: bold; font-size: 14px; }
-        .designer-tab-close:hover { color: #ff4444; opacity: 1; }
-        
-        .canvas-viewport { display: none; height: 100%; }
+        .canvas-area { flex: 1; padding: 30px; position: relative; display: flex; flex-direction: column; overflow-y: auto; background: #0d1117; }
+        .canvas-viewport { display: none; height: 100%; overflow: auto; background: #010409; }
         .canvas-viewport.active { display: block; }
+        
+        .canvas-drop-area { 
+            flex: 1; 
+            border: 2px dashed var(--jettra-border); 
+            border-radius: 8px; 
+            position: relative; 
+            padding: 20px; 
+            transition: all 0.3s; 
+            min-height: 800px; 
+            min-width: 1000px;
+            transform-origin: top left;
+            background: #0d1117;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
         
         .canvas-item { 
             position: relative; 
@@ -129,26 +62,63 @@
 
         .j-component { display: inline-block; width: 100%; box-sizing: border-box; }
         
-        .modal-placeholder-box { 
-            padding: 15px; 
-            border: 1px solid var(--jettra-accent); 
-            border-radius: 12px; 
-            background: rgba(0,255,255,0.05); 
+        .j-btn { 
             cursor: pointer; 
-            min-width: 150px; 
-            text-align: center; 
-            transition: all 0.2s;
+            border-radius: 6px; 
+            padding: 8px 16px; 
+            border: 1px solid var(--jettra-border); 
+            background: #21262d; 
+            color: var(--jettra-text); 
+            font-weight: 600; 
+            font-size: 13px; 
+            transition: all 0.2s; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
         }
-        .modal-placeholder-box:hover { 
-            background: rgba(0,255,255,0.1); 
-            box-shadow: 0 0 15px rgba(0,255,255,0.2); 
-            transform: scale(1.02);
-        }
+        .j-btn:hover { background: #30363d; border-color: #8b949e; }
+        .j-btn-primary { background: #238636; border-color: rgba(240,246,252,0.1); color: white; }
+        .j-btn-primary:hover { background: #2ea043; }
+        .j-btn-danger { background: #da3633; border-color: rgba(240,246,252,0.1); color: white; }
+        .j-btn-danger:hover { background: #f85149; }
 
-        .sidebar-tab.active { color: var(--jettra-accent); border-bottom: 2px solid var(--jettra-accent); background: rgba(0,255,255,0.05); font-weight: bold; }
-        .tab-content { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
-        .tab-content.active { display: flex; }
-        .project-info-section { padding: 15px; background: rgba(0,255,255,0.03); border-bottom: 1px solid var(--jettra-border); }
+        .j-input { 
+            background: #0d1117; 
+            border: 1px solid var(--jettra-border); 
+            color: var(--jettra-text); 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            font-size: 13px; 
+            width: 100%; 
+            box-sizing: border-box; 
+            outline: none; 
+        }
+        .j-input:focus { border-color: var(--jettra-accent); box-shadow: 0 0 0 2px var(--jettra-accent-dim); }
+
+        .sidebar-tabs { display: flex; border-bottom: 1px solid var(--jettra-border); background: #161b22; }
+        .sidebar-tab { padding: 10px 15px; cursor: pointer; font-size: 12px; color: #8b949e; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .sidebar-tab:hover { color: var(--jettra-text); background: rgba(255,255,255,0.02); }
+        .sidebar-tab.active { color: var(--jettra-accent); border-bottom-color: var(--jettra-accent); background: rgba(0,255,255,0.05); font-weight: 600; }
+
+        .explorer-item { padding: 6px 12px; cursor: pointer; font-size: 12px; display: flex; align-items: center; border-radius: 4px; margin: 1px 4px; transition: all 0.1s; color: #c9d1d9; }
+        .explorer-item:hover { background: rgba(255,255,255,0.05); }
+        .file-page { color: #79c0ff; }
+        .file-model { color: #aff5b4; }
+
+        .inspector-row { margin-bottom: 12px; padding: 0 4px; }
+        .inspector-label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .inspector-input { width: 100%; }
+
+        .property-inspector { 
+            width: 320px; 
+            background: #161b22; 
+            border-left: 1px solid var(--jettra-border); 
+            display: none; 
+            flex-direction: column; 
+            padding: 16px; 
+            overflow-y: auto; 
+            box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body>
@@ -160,11 +130,11 @@
 
         <div id="tab-project" class="tab-content active">
             <div class="project-info-section">
-                <div style="font-size: 9px; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Active Project</div>
-                <div id="project-name-display" style="color: var(--jettra-accent); font-weight: bold; font-size: 13px; margin-bottom: 5px;">None Selected</div>
-                <div id="project-path-display" style="font-size: 10px; opacity: 0.5; word-break: break-all; line-height: 1.4;">Select a project to begin</div>
-                <button class="j-btn" style="width: 100%; margin-top: 10px; font-size: 11px; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="requestWorkspaceFiles()">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                <div style="font-size: 10px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Active Project</div>
+                <div id="project-name-display" style="color: var(--jettra-accent); font-weight: bold; font-size: 15px; margin-bottom: 8px;">None Selected</div>
+                <div id="project-path-display" style="font-size: 11px; color: #8b949e; word-break: break-all; line-height: 1.5;">Select a project to begin</div>
+                <button class="j-btn" style="width: 100%; margin-top: 12px; font-size: 12px; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #21262d; border: 1px solid var(--jettra-border);" onclick="requestWorkspaceFiles()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                     Refresh Files
                 </button>
             </div>
@@ -182,8 +152,24 @@
     
     <div class="main-area">
         <div class="topbar">
-            <span style="font-size: 12px; font-weight: bold; color: var(--jettra-accent);">Jettra NB Designer</span>
+            <span style="font-size: 14px; font-weight: bold; color: var(--jettra-accent); letter-spacing: 0.5px;">Jettra NB Designer</span>
             <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                <!-- Zoom Controls -->
+                <div style="display: flex; align-items: center; gap: 5px; padding: 0 10px; border-left: 1px solid var(--jettra-border); background: rgba(0,0,0,0.2); border-radius: 6px; height: 28px;">
+                    <button class="j-btn" style="padding: 0 8px; height: 20px; line-height: 1; font-size: 14px; background: #333;" onclick="adjustZoom(-0.1)">-</button>
+                    <select id="zoom-select" class="j-input" style="width: 65px; margin: 0; padding: 2px; font-size: 10px; height: 20px; border: none; background: transparent;" onchange="setZoom(this.value)">
+                        <option value="0.25">25%</option>
+                        <option value="0.5">50%</option>
+                        <option value="0.75">75%</option>
+                        <option value="1" selected>100%</option>
+                        <option value="1.25">125%</option>
+                        <option value="1.5">150%</option>
+                        <option value="2">200%</option>
+                        <option value="3">300%</option>
+                    </select>
+                    <button class="j-btn" style="padding: 0 8px; height: 20px; line-height: 1; font-size: 14px; background: #333;" onclick="adjustZoom(0.1)">+</button>
+                </div>
+
                 <span style="font-size: 11px;">Model:</span>
                 <select id="model-select" class="j-input" style="width: 150px; margin: 0; padding: 4px;" onchange="selectModel(this.value)">
                     <option value="">None</option>
@@ -204,10 +190,12 @@
                     Main Page
                 </div>
             </div>
-            <div id="viewports-container" style="flex: 1; position: relative; overflow: hidden;">
+            <div id="viewports-container" style="flex: 1; position: relative; overflow: hidden; background: #010409;">
                 <div id="viewport-main" class="canvas-viewport active">
-                    <div id="canvas" class="canvas-drop-area" style="min-height: 100%;" ondrop="drop(event)" ondragover="allowDrop(event)">
-                        <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>
+                    <div style="padding: 100px; min-width: min-content; min-height: min-content;">
+                        <div id="canvas" class="canvas-drop-area" ondrop="drop(event)" ondragover="allowDrop(event)">
+                            <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:200px; font-size: 1.5rem;">Drag components here</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -242,10 +230,32 @@
         let currentModel = null;
         let modelFields = [];
         let currentClassName = "GeneratedPage";
-        let isSyncing = false;
-        
-        let designerTabs = [{ id: 'main', title: 'Main Page' }];
         let activeDesignerTab = 'main';
+        
+        let currentZoom = 1.0;
+
+        function setZoom(val) {
+            currentZoom = parseFloat(val);
+            applyZoom();
+        }
+
+        function adjustZoom(delta) {
+            currentZoom = Math.max(0.2, Math.min(3.0, currentZoom + delta));
+            // Update select to nearest value if possible
+            const select = document.getElementById('zoom-select');
+            const percent = Math.round(currentZoom * 100);
+            // We'll just show the actual zoom in the select title or a label if we wanted to be fancy, 
+            // but for now let's just apply it.
+            applyZoom();
+        }
+
+        function applyZoom() {
+            const canvases = document.querySelectorAll('.canvas-drop-area');
+            canvases.forEach(c => {
+                c.style.transform = `scale(${currentZoom})`;
+            });
+            // Update the display if needed
+        }
 
         function tabTo(id) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
