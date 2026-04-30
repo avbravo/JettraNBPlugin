@@ -818,6 +818,50 @@
                 html += createInspectorRow('Default', 'default', props.default || '', 'text');
             }
 
+            if (type === 'TextBox') {
+                html += createInspectorRow('Value', 'value', props.value || '', 'text');
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">Readonly</span>
+                        <select class="inspector-input" onchange="updateProp('readonly', this.value)">
+                            <option value="false" ${props.readonly === 'false' ? 'selected' : ''}>False</option>
+                            <option value="true" ${props.readonly === 'true' ? 'selected' : ''}>True</option>
+                        </select>
+                    </div>
+                    <div class="inspector-row">
+                        <span class="inspector-label">Display</span>
+                        <select class="inspector-input" onchange="updateProp('display', this.value)">
+                            <option value="block" ${props.display === 'block' ? 'selected' : ''}>Block</option>
+                            <option value="none" ${props.display === 'none' ? 'selected' : ''}>None</option>
+                        </select>
+                    </div>
+                `;
+            }
+
+            if (type === 'Button') {
+                html += createInspectorRow('Background Color', 'backgroundColor', props.backgroundColor || '', 'text');
+                html += createInspectorRow('OnClick', 'onclick', props.onclick || '', 'text');
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">Type</span>
+                        <select class="inspector-input" onchange="updateProp('type', this.value)">
+                            <option value="button" ${props.type === 'button' ? 'selected' : ''}>Button</option>
+                            <option value="submit" ${props.type === 'submit' ? 'selected' : ''}>Submit</option>
+                            <option value="reset" ${props.type === 'reset' ? 'selected' : ''}>Reset</option>
+                        </select>
+                    </div>
+                `;
+            }
+
+            if (type === 'Modal' || type === 'Dialog') {
+                html += createInspectorRow('Padding', 'padding', props.padding || '30px', 'text');
+                html += createInspectorRow('Background Color', 'backgroundColor', props.backgroundColor || '#161b22', 'text');
+                html += createInspectorRow('Border', 'border', props.border || '1px solid #30363d', 'text');
+                html += createInspectorRow('Width', 'width', props.width || '95%', 'text');
+                html += createInspectorRow('Max Width', 'maxWidth', props.maxWidth || '650px', 'text');
+                html += createInspectorRow('Border Radius', 'borderRadius', props.borderRadius || '12px', 'text');
+            }
+
             if (type === 'Header') {
                 html += `
                     <div class="inspector-row">
@@ -983,6 +1027,26 @@
                 if (props.icon) c += `\n            .setIcon("${props.icon}")`;
                 if (props.columns) c += `\n            .setColumns(${props.columns})`;
                 
+                // New Fluent API properties
+                if (props.value) c += `\n            .setValue("${props.value}")`;
+                if (props.readonly === 'true') c += `\n            .setReadonly(true)`;
+                if (props.display) c += `\n            .setDisplay("${props.display}")`;
+                
+                if (type === 'Button') {
+                    if (props.backgroundColor) c += `\n            .setBackgroundColor("${props.backgroundColor}")`;
+                    if (props.onclick) c += `\n            .setOnclick("${props.onclick}")`;
+                    if (props.type) c += `\n            .setType("${props.type}")`;
+                }
+
+                if (type === 'Modal' || type === 'Dialog') {
+                    if (props.padding) c += `\n            .setPadding("${props.padding}")`;
+                    if (props.backgroundColor) c += `\n            .setBackgroundColor("${props.backgroundColor}")`;
+                    if (props.border) c += `\n            .setBorder("${props.border}")`;
+                    if (props.width) c += `\n            .setWidth("${props.width}")`;
+                    if (props.maxWidth) c += `\n            .setMaxWidth("${props.maxWidth}")`;
+                    if (props.borderRadius) c += `\n            .setBorderRadius("${props.borderRadius}")`;
+                }
+
                 // Events
                 if (props.events) {
                     Object.keys(props.events).forEach(ev => {
@@ -1002,7 +1066,7 @@
                     const props = JSON.parse(it.getAttribute('data-props') || '{}');
                     const vName = props.id || (type.toLowerCase() + '_' + idx);
                     
-                    const simpleTypes = ['Divide', 'Separator', 'Header', 'Paragraph', 'Span', 'Label', 'Clock', 'Loading', 'Alert', 'Notification'];
+                    const simpleTypes = ['Divide', 'Separator', 'Header', 'Paragraph', 'Span', 'Label', 'Clock', 'Loading', 'Alert', 'Notification', 'TrafficLight'];
                     
                     if (['Panel', 'Div', 'FormGroup', 'Card', 'Grid', 'Board'].includes(type)) {
                         out += `        ${type} ${vName} = new ${type}()${chainProps(props, type)};\n`;
