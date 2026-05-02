@@ -372,6 +372,8 @@
         let modelFields = [];
         let currentClassName = "GeneratedPage";
         let activeDesignerTab = 'main';
+        let isSyncing = false;
+        let designerTabs = [{ id: 'main', title: 'Main Page' }];
         
         let currentZoom = 1.0;
 
@@ -957,7 +959,13 @@
             el.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); selectElement(el); showInspector(); };
             
             canvas.appendChild(el);
-            if (!isSyncing) updateCode();
+            if (!isSyncing) {
+                updateCode();
+                const panel = document.getElementById('code-area-panel');
+                if (panel && panel.classList.contains('collapsed')) {
+                    toggleCodeArea();
+                }
+            }
         }
 
         let selectedElement = null;

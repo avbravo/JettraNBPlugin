@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.jettra.nb</groupId>
     <artifactId>JettraNBPlugin</artifactId>
-    <version>1.0.2.32</version>
+    <version>1.0.2.33</version>
     <packaging>nbm</packaging>
     <name>Jettra NB Designer</name>
     <properties>
