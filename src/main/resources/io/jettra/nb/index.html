@@ -849,6 +849,15 @@
         function addComponent(type, parent, customId, initialProps) {
             const canvas = parent || document.querySelector('.canvas-viewport.active .canvas-drop-area');
             if (!canvas) return;
+
+            // Restrict Tab components to TabView
+            if (type === 'Tab') {
+                const parentItem = canvas.closest('.canvas-item');
+                if (!parentItem || parentItem.getAttribute('data-type') !== 'TabView') {
+                    if (window.javaConnector) window.javaConnector.showError("Error: Los componentes Tab solo pueden añadirse dentro de un TabView.");
+                    return;
+                }
+            }
             
             const placeholder = canvas.querySelector('.canvas-placeholder');
             if (placeholder) placeholder.style.display = 'none';
@@ -1139,6 +1148,20 @@
                 `;
             }
 
+            if (type === 'TabView') {
+                html += `
+                    <div class="inspector-row">
+                        <span class="inspector-label">Orientation</span>
+                        <select class="inspector-input" onchange="updateProp('orientation', this.value)">
+                            <option value="TOP" ${props.orientation === 'TOP' ? 'selected' : ''}>TOP</option>
+                            <option value="BOTTOM" ${props.orientation === 'BOTTOM' ? 'selected' : ''}>BOTTOM</option>
+                            <option value="LEFT" ${props.orientation === 'LEFT' ? 'selected' : ''}>LEFT</option>
+                            <option value="RIGHT" ${props.orientation === 'RIGHT' ? 'selected' : ''}>RIGHT</option>
+                        </select>
+                    </div>
+                `;
+            }
+
             if (type === 'Datatable') {
                 const headers = props.headers || ['Col 1', 'Col 2'];
                 html += `
@@ -1301,9 +1324,12 @@
                     
                     const simpleTypes = ['Divide', 'Separator', 'Header', 'Paragraph', 'Span', 'Label', 'Clock', 'Loading', 'Alert', 'Notification', 'TrafficLight'];
                     
-                    if (['Panel', 'Div', 'FormGroup', 'Card', 'Grid', 'Board'].includes(type)) {
+                    if (['Panel', 'Div', 'FormGroup', 'Card', 'Grid', 'Board', 'TabView'].includes(type)) {
                         out += `        ${type} ${vName} = new ${type}()${chainProps(props, type)};\n`;
                         if (type === 'Card' && props.title) out += `        ${vName}.setTitle("${props.title}");\n`;
+                        if (type === 'TabView' && props.orientation) {
+                            out += `        ${vName}.setOrientation(TabView.Orientation.${props.orientation});\n`;
+                        }
                         
                         const kids = it.querySelectorAll(':scope > .canvas-container > .canvas-item, :scope > div > .canvas-container > .canvas-item');
                         if (kids.length > 0) out += walk(kids, vName);
