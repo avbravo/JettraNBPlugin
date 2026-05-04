@@ -655,7 +655,61 @@
                 case 'ViewMedia': content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>'; break;
                 case 'BarCode': content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>'; break;
                 case 'Carousel': content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>'; break;
-                case 'TabView': content = '<div style="border:1px solid rgba(0,255,255,0.2); border-radius:8px; overflow:hidden;"><div style="display:flex; background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(0,255,255,0.2);" class="tab-headers"><span style="padding:10px; color:#aaa; font-size:11px;">[Tab Headers]</span></div><div class="canvas-container" style="padding:10px; min-height:100px; background:rgba(0,255,255,0.02);"></div></div>'; break;
+                case 'TabView': {
+                    const orient = p.orientation || 'TOP';
+                    let mainStyle = 'display: flex; border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; overflow: hidden;';
+                    let layoutStyle = 'display: flex; flex: 1;';
+                    let headerAreaStyle = 'display: flex; background: rgba(0,0,0,0.3); flex-direction: column;';
+                    let tabsStyle = 'display: flex;';
+                    let containerStyle = 'padding: 15px; min-height: 100px; background: rgba(0,255,255,0.02); flex: 1;';
+                    
+                    const titleHtml = p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : '';
+                    let tabTitlesHtml = '';
+                    const existingContainer = el.querySelector('.canvas-container');
+                    if (existingContainer) {
+                        const tabs = existingContainer.querySelectorAll(':scope > .canvas-item[data-type="Tab"]');
+                        if (tabs.length > 0) {
+                            tabTitlesHtml = Array.from(tabs).map(t => {
+                                const tp = JSON.parse(t.getAttribute('data-props') || '{}');
+                                return `<div style="padding: 8px 15px; border: 1px solid rgba(0,255,255,0.1); margin: 2px; border-radius: 4px; font-size: 10px; background: rgba(0,255,255,0.03); color: var(--jettra-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${tp.text || 'Tab'}</div>`;
+                            }).join('');
+                        } else {
+                            tabTitlesHtml = '<span style="padding:10px; color:#aaa; font-size:10px; opacity:0.5;">[Tabs]</span>';
+                        }
+                    }
+
+                    let headerHtml = '';
+                    if (orient === 'TOP') {
+                        mainStyle += 'flex-direction: column;';
+                        layoutStyle += 'flex-direction: column;';
+                        headerAreaStyle += 'border-bottom: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: row; flex-wrap: wrap;';
+                        headerHtml = `${titleHtml}<div style="${headerAreaStyle}"><div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div style="${layoutStyle}"><div class="canvas-container" style="${containerStyle}"></div></div></div>`;
+                    } else if (orient === 'BOTTOM') {
+                        mainStyle += 'flex-direction: column-reverse;';
+                        layoutStyle += 'flex-direction: column-reverse;';
+                        headerAreaStyle += 'border-top: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: row; flex-wrap: wrap;';
+                        headerHtml = `${titleHtml}<div style="${headerAreaStyle}"><div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div style="${layoutStyle}"><div class="canvas-container" style="${containerStyle}"></div></div></div>`;
+                    } else if (orient === 'LEFT') {
+                        mainStyle += 'flex-direction: row;';
+                        layoutStyle += 'flex-direction: row;';
+                        headerAreaStyle += 'width: 180px; border-right: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: column;';
+                        headerHtml = `<div style="${headerAreaStyle}">${p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; border-bottom: 1px solid rgba(0,255,255,0.1); font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : ''}<div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div class="canvas-container" style="${containerStyle}"></div></div>`;
+                    } else if (orient === 'RIGHT') {
+                        mainStyle += 'flex-direction: row-reverse;';
+                        layoutStyle += 'flex-direction: row-reverse;';
+                        headerAreaStyle += 'width: 180px; border-left: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: column;';
+                        headerHtml = `<div style="${headerAreaStyle}">${p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; border-bottom: 1px solid rgba(0,255,255,0.1); font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : ''}<div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div class="canvas-container" style="${containerStyle}"></div></div>`;
+                    }
+                    break;
+                }
                 case 'Tab': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>'; break;
                 case 'Tree': content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>'; break;
                 case 'TreeItem': content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>'; break;
@@ -915,7 +969,49 @@
                 case 'ViewMedia': content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>'; break;
                 case 'BarCode': content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>'; break;
                 case 'Carousel': content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>'; break;
-                case 'TabView': content = '<div style="border:1px solid rgba(0,255,255,0.2); border-radius:8px; overflow:hidden;"><div style="display:flex; background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(0,255,255,0.2);" class="tab-headers"><span style="padding:10px; color:#aaa; font-size:11px;">[Tab Headers]</span></div><div class="canvas-container" style="padding:10px; min-height:100px; background:rgba(0,255,255,0.02);"></div></div>'; break;
+                case 'TabView': {
+                    const orient = p.orientation || 'TOP';
+                    let mainStyle = 'display: flex; border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; overflow: hidden;';
+                    let layoutStyle = 'display: flex; flex: 1;';
+                    let headerAreaStyle = 'display: flex; background: rgba(0,0,0,0.3); flex-direction: column;';
+                    let tabsStyle = 'display: flex;';
+                    let containerStyle = 'padding: 15px; min-height: 100px; background: rgba(0,255,255,0.02); flex: 1;';
+                    
+                    const titleHtml = p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : '';
+                    let tabTitlesHtml = '<span style="padding:10px; color:#aaa; font-size:10px; opacity:0.5;">[Tabs]</span>';
+
+                    let headerHtml = '';
+                    if (orient === 'TOP') {
+                        mainStyle += 'flex-direction: column;';
+                        layoutStyle += 'flex-direction: column;';
+                        headerAreaStyle += 'border-bottom: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: row; flex-wrap: wrap;';
+                        headerHtml = `${titleHtml}<div style="${headerAreaStyle}"><div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div style="${layoutStyle}"><div class="canvas-container" style="${containerStyle}"></div></div></div>`;
+                    } else if (orient === 'BOTTOM') {
+                        mainStyle += 'flex-direction: column-reverse;';
+                        layoutStyle += 'flex-direction: column-reverse;';
+                        headerAreaStyle += 'border-top: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: row; flex-wrap: wrap;';
+                        headerHtml = `${titleHtml}<div style="${headerAreaStyle}"><div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div style="${layoutStyle}"><div class="canvas-container" style="${containerStyle}"></div></div></div>`;
+                    } else if (orient === 'LEFT') {
+                        mainStyle += 'flex-direction: row;';
+                        layoutStyle += 'flex-direction: row;';
+                        headerAreaStyle += 'width: 180px; border-right: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: column;';
+                        headerHtml = `<div style="${headerAreaStyle}">${p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; border-bottom: 1px solid rgba(0,255,255,0.1); font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : ''}<div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div class="canvas-container" style="${containerStyle}"></div></div>`;
+                    } else if (orient === 'RIGHT') {
+                        mainStyle += 'flex-direction: row-reverse;';
+                        layoutStyle += 'flex-direction: row-reverse;';
+                        headerAreaStyle += 'width: 180px; border-left: 1px solid rgba(0,255,255,0.2);';
+                        tabsStyle += 'flex-direction: column;';
+                        headerHtml = `<div style="${headerAreaStyle}">${p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; border-bottom: 1px solid rgba(0,255,255,0.1); font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : ''}<div style="${tabsStyle}">${tabTitlesHtml}</div></div>`;
+                        content = `<div style="${mainStyle}">${headerHtml}<div class="canvas-container" style="${containerStyle}"></div></div>`;
+                    }
+                    break;
+                }
                 case 'Tab': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>'; break;
                 case 'Tree': content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>'; break;
                 case 'TreeItem': content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>'; break;
@@ -1224,16 +1320,18 @@
             props[key] = value;
             selectedElement.setAttribute('data-props', JSON.stringify(props));
             
-            // Visual feedback update if needed
-            if (key === 'text' || key === 'level') {
-                const type = selectedElement.getAttribute('data-type');
+            // Visual feedback update
+            const type = selectedElement.getAttribute('data-type');
+            if (['TabView', 'Tab', 'CreditCard', 'Panel', 'Div', 'Modal', 'Dialog', 'Datatable', 'FormGroup', 'Center', 'UIComponent'].includes(type)) {
+                refreshComponentPreview(selectedElement);
+            } else if (key === 'text' || key === 'level') {
                 if (type === 'Header') {
                     const level = props.level || '2';
                     const text = props.text || 'Header';
                     selectedElement.innerHTML = `<h${level} style="margin:0; color:var(--jettra-text);">${text}</h${level}>` + 
                         '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
                 } else if (key === 'text') {
-                    const inner = selectedElement.querySelector('h2, p, span, label, button, a');
+                    const inner = selectedElement.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, a');
                     if (inner) inner.innerText = value;
                 }
             }
