@@ -1,366 +1,569 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jettra Designer</title>
-    <style>
-        :root { --jettra-accent: #00ffff; --jettra-bg: #0d1117; --jettra-border: #30363d; --jettra-text: #e6edf3; --jettra-accent-dim: rgba(0, 255, 255, 0.1); }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--jettra-bg); color: var(--jettra-text); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-size: 13px; }
-        .sidebar { width: 300px; background: #010409; border-right: 1px solid var(--jettra-border); display: flex; flex-direction: column; overflow-y: auto; }
-        .topbar { display: flex; align-items: center; gap: 10px; padding: 12px; background: #161b22; border-bottom: 1px solid var(--jettra-border); }
-        .main-area { flex: 1; display: flex; flex-direction: column; }
-        .canvas-area { flex: 1; padding: 30px; position: relative; display: flex; flex-direction: column; overflow-y: auto; background: #0d1117; }
-        .canvas-viewport { display: none; height: 100%; overflow: auto; background: #010409; }
-        .canvas-viewport.active { display: block; }
-        
-        .canvas-drop-area { 
-            flex: 1; 
-            border: 2px dashed var(--jettra-border); 
-            border-radius: 8px; 
-            position: relative; 
-            padding: 20px; 
-            transition: all 0.3s; 
-            min-height: 800px; 
-            min-width: 1000px;
-            transform-origin: top left;
-            background: #0d1117;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-        }
-        
-        .canvas-item { 
-            position: relative; 
-            padding: 12px; 
-            margin-bottom: 15px; 
-            background: rgba(255,255,255,0.03); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 8px; 
-            transition: all 0.2s;
-            color: #f0f6fc;
-            font-size: 14px;
-        }
-        .canvas-item:hover { border-color: rgba(0,255,255,0.3); background: rgba(255,255,255,0.05); }
-        .canvas-item.selected { border-color: var(--jettra-accent); background: rgba(0,255,255,0.05); box-shadow: 0 0 10px rgba(0,255,255,0.1); }
-        
-        .canvas-container { min-height: 40px; padding: 10px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; margin-top: 5px; }
-        
-        .delete-tool { 
-            position: absolute; 
-            top: -8px; 
-            right: -8px; 
-            background: #f85149; 
-            color: white; 
-            width: 18px; 
-            height: 18px; 
-            border-radius: 50%; 
-            display: none; 
-            align-items: center; 
-            justify-content: center; 
-            cursor: pointer; 
-            z-index: 100;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-        .canvas-item:hover .delete-tool { display: flex; }
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Jettra Designer</title>
+        <style>
+            :root {
+                --jettra-accent: #00ffff;
+                --jettra-bg: #0d1117;
+                --jettra-border: #30363d;
+                --jettra-text: #e6edf3;
+                --jettra-accent-dim: rgba(0, 255, 255, 0.1);
+            }
+            body {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: var(--jettra-bg);
+                color: var(--jettra-text);
+                margin: 0;
+                padding: 0;
+                display: flex;
+                height: 100vh;
+                overflow: hidden;
+                font-size: 13px;
+            }
+            .sidebar {
+                width: 300px;
+                background: #010409;
+                border-right: 1px solid var(--jettra-border);
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .topbar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px;
+                background: #161b22;
+                border-bottom: 1px solid var(--jettra-border);
+            }
+            .main-area {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            .canvas-area {
+                flex: 1;
+                padding: 30px;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
+                background: #0d1117;
+            }
+            .canvas-viewport {
+                display: none;
+                height: 100%;
+                overflow: auto;
+                background: #010409;
+            }
+            .canvas-viewport.active {
+                display: block;
+            }
 
-        .j-component { display: inline-block; width: 100%; box-sizing: border-box; }
-        
-        .j-btn { 
-            cursor: pointer; 
-            border-radius: 6px; 
-            padding: 8px 16px; 
-            border: 1px solid var(--jettra-border); 
-            background: #21262d; 
-            color: var(--jettra-text); 
-            font-weight: 600; 
-            font-size: 13px; 
-            transition: all 0.2s; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-        }
-        .j-btn:hover { background: #30363d; border-color: #8b949e; }
-        .j-btn-primary { background: #238636; border-color: rgba(240,246,252,0.1); color: white; }
-        .j-btn-primary:hover { background: #2ea043; }
-        .j-btn-danger { background: #da3633; border-color: rgba(240,246,252,0.1); color: white; }
-        .j-btn-danger:hover { background: #f85149; }
+            .canvas-drop-area {
+                flex: 1;
+                border: 2px dashed var(--jettra-border);
+                border-radius: 8px;
+                position: relative;
+                padding: 20px;
+                transition: all 0.3s;
+                min-height: 800px;
+                min-width: 1000px;
+                transform-origin: top left;
+                background: #0d1117;
+                box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            }
 
-        .j-input { 
-            background: #0d1117; 
-            border: 1px solid var(--jettra-border); 
-            color: var(--jettra-text); 
-            padding: 8px 12px; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            width: 100%; 
-            box-sizing: border-box; 
-            outline: none; 
-        }
-        .j-input:focus { border-color: var(--jettra-accent); box-shadow: 0 0 0 2px var(--jettra-accent-dim); }
+            .canvas-item {
+                position: relative;
+                padding: 12px;
+                margin-bottom: 15px;
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.05);
+                border-radius: 8px;
+                transition: all 0.2s;
+                color: #f0f6fc;
+                font-size: 14px;
+            }
+            .canvas-item:hover {
+                border-color: rgba(0,255,255,0.3);
+                background: rgba(255,255,255,0.05);
+            }
+            .canvas-item.selected {
+                border-color: var(--jettra-accent);
+                background: rgba(0,255,255,0.05);
+                box-shadow: 0 0 10px rgba(0,255,255,0.1);
+            }
 
-        .sidebar-tabs { display: flex; border-bottom: 1px solid var(--jettra-border); background: #161b22; }
-        .sidebar-tab { padding: 10px 15px; cursor: pointer; font-size: 12px; color: #8b949e; border-bottom: 2px solid transparent; transition: all 0.2s; }
-        .sidebar-tab:hover { color: var(--jettra-text); background: rgba(255,255,255,0.02); }
-        .sidebar-tab.active { color: var(--jettra-accent); border-bottom-color: var(--jettra-accent); background: rgba(0,255,255,0.05); font-weight: 600; }
-        
-        .tab-content { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
-        .tab-content.active { display: flex; }
+            .canvas-container {
+                min-height: 40px;
+                padding: 10px;
+                border: 1px dashed rgba(255,255,255,0.1);
+                border-radius: 6px;
+                margin-top: 5px;
+            }
 
-        .tree-subtree { margin-bottom: 15px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 5px; }
-        .subtree-title { 
-            font-size: 10px; 
-            color: #8b949e; 
-            padding: 8px 12px; 
-            cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .subtree-title:hover { background: rgba(255,255,255,0.03); color: var(--jettra-text); }
-        .subtree-content { padding-left: 10px; }
+            .delete-tool {
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                background: #f85149;
+                color: white;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                z-index: 100;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            }
+            .canvas-item:hover .delete-tool {
+                display: flex;
+            }
 
-        .explorer-item { padding: 6px 12px; cursor: pointer; font-size: 12px; display: flex; align-items: center; border-radius: 4px; margin: 1px 4px; transition: all 0.1s; color: #c9d1d9; }
-        .explorer-item:hover { background: rgba(255,255,255,0.05); }
-        .file-page { color: #79c0ff; }
-        .file-model { color: #aff5b4; }
+            .j-component {
+                display: inline-block;
+                width: 100%;
+                box-sizing: border-box;
+            }
 
-        .inspector-row { margin-bottom: 12px; padding: 0 4px; }
-        .inspector-label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
-        .inspector-input { width: 100%; }
+            .j-btn {
+                cursor: pointer;
+                border-radius: 6px;
+                padding: 8px 16px;
+                border: 1px solid var(--jettra-border);
+                background: #21262d;
+                color: var(--jettra-text);
+                font-weight: 600;
+                font-size: 13px;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .j-btn:hover {
+                background: #30363d;
+                border-color: #8b949e;
+            }
+            .j-btn-primary {
+                background: #238636;
+                border-color: rgba(240,246,252,0.1);
+                color: white;
+            }
+            .j-btn-primary:hover {
+                background: #2ea043;
+            }
+            .j-btn-danger {
+                background: #da3633;
+                border-color: rgba(240,246,252,0.1);
+                color: white;
+            }
+            .j-btn-danger:hover {
+                background: #f85149;
+            }
 
-        .property-inspector { 
-            width: 320px; 
-            background: #161b22; 
-            border-left: 1px solid var(--jettra-border); 
-            display: none; 
-            flex-direction: column; 
-            padding: 16px; 
-            overflow-y: auto; 
-            box-shadow: -5px 0 15px rgba(0,0,0,0.3);
-        }
+            .j-input {
+                background: #0d1117;
+                border: 1px solid var(--jettra-border);
+                color: var(--jettra-text);
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 13px;
+                width: 100%;
+                box-sizing: border-box;
+                outline: none;
+            }
+            .j-input:focus {
+                border-color: var(--jettra-accent);
+                box-shadow: 0 0 0 2px var(--jettra-accent-dim);
+            }
 
-        /* Palette Styles */
-        .palette-category { margin-bottom: 20px; }
-        .palette-cat-title { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 12px; padding-left: 5px; border-left: 2px solid var(--jettra-accent); }
-        .palette-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .palette-item { 
-            background: #21262d; 
-            border: 1px solid var(--jettra-border); 
-            border-radius: 10px; 
-            aspect-ratio: 1; 
-            display: flex; 
-            flex-direction: column;
-            align-items: center; 
-            justify-content: center; 
-            cursor: grab; 
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .palette-item:hover { 
-            background: #30363d; 
-            border-color: var(--jettra-accent); 
-            transform: scale(1.05); 
-            box-shadow: 0 0 15px rgba(0,255,255,0.2); 
-            z-index: 10;
-        }
-        .palette-item svg { width: 24px; height: 24px; stroke: #c9d1d9; fill: none; stroke-width: 1.8; transition: all 0.2s; }
-        .palette-item:hover svg { stroke: var(--jettra-accent); filter: drop-shadow(0 0 3px var(--jettra-accent)); }
-        
-        .palette-item::after {
-            content: attr(title);
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #30363d;
-            color: #fff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 9px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            z-index: 20;
-        }
-        .palette-item:hover::after { opacity: 1; }
+            .sidebar-tabs {
+                display: flex;
+                border-bottom: 1px solid var(--jettra-border);
+                background: #161b22;
+            }
+            .sidebar-tab {
+                padding: 10px 15px;
+                cursor: pointer;
+                font-size: 12px;
+                color: #8b949e;
+                border-bottom: 2px solid transparent;
+                transition: all 0.2s;
+            }
+            .sidebar-tab:hover {
+                color: var(--jettra-text);
+                background: rgba(255,255,255,0.02);
+            }
+            .sidebar-tab.active {
+                color: var(--jettra-accent);
+                border-bottom-color: var(--jettra-accent);
+                background: rgba(0,255,255,0.05);
+                font-weight: 600;
+            }
 
-        /* Designer Tabs */
-        .designer-tabs { display: flex; background: #161b22; border-bottom: 1px solid var(--jettra-border); padding: 0 10px; gap: 4px; align-items: flex-end; height: 38px; }
-        .designer-tab { 
-            padding: 6px 15px; 
-            background: #161b22; 
-            border: 1px solid var(--jettra-border); 
-            border-bottom: none; 
-            border-radius: 6px 6px 0 0; 
-            font-size: 11px; 
-            color: #8b949e; 
-            cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            transition: all 0.2s;
-            margin-top: 5px;
-        }
-        .designer-tab:hover { background: #21262d; color: var(--jettra-text); }
-        .designer-tab.active { background: var(--jettra-bg); color: var(--jettra-accent); border-top: 2px solid var(--jettra-accent); font-weight: bold; }
-        .designer-tab-close { margin-left: 5px; color: #f85149; font-weight: bold; opacity: 0.5; }
-        .designer-tab-close:hover { opacity: 1; }
+            .tab-content {
+                display: none;
+                flex: 1;
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .tab-content.active {
+                display: flex;
+            }
 
-        /* Code Area (Bottom Panel) */
-        .code-area { 
-            height: 300px; 
-            background: #010409; 
-            border-top: 1px solid var(--jettra-border); 
-            display: flex; 
-            flex-direction: column; 
-            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-        .code-area.collapsed { height: 35px; overflow: hidden; }
-        .code-header { 
-            padding: 8px 15px; 
-            background: #161b22; 
-            border-bottom: 1px solid var(--jettra-border); 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            cursor: pointer;
-            user-select: none;
-            height: 35px;
-            box-sizing: border-box;
-        }
-        .code-display { 
-            flex: 1; 
-            background: #0d1117; 
-            color: #d1d5db; 
-            font-family: 'JetBrains Mono', 'Fira Code', monospace; 
-            font-size: 12px; 
-            padding: 15px; 
-            border: none; 
-            resize: none; 
-            outline: none; 
-            line-height: 1.6;
-            overflow: auto;
-            white-space: pre;
-        }
-    </style>
-</head>
-<body>
-    <div class="sidebar">
-        <div class="sidebar-tabs">
-            <div id="tab-btn-project" class="sidebar-tab active" onclick="showSidebarTab('project')">Project</div>
-            <div id="tab-btn-palette" class="sidebar-tab" onclick="showSidebarTab('palette')">Palette</div>
-        </div>
+            .tree-subtree {
+                margin-bottom: 15px;
+                border-left: 1px solid rgba(255,255,255,0.05);
+                margin-left: 5px;
+            }
+            .subtree-title {
+                font-size: 10px;
+                color: #8b949e;
+                padding: 8px 12px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-weight: bold;
+                transition: background 0.2s;
+            }
+            .subtree-title:hover {
+                background: rgba(255,255,255,0.03);
+                color: var(--jettra-text);
+            }
+            .subtree-content {
+                padding-left: 10px;
+            }
 
-        <div id="tab-project" class="tab-content active">
-            <div class="project-info-section">
-                <div style="font-size: 10px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Active Project</div>
-                <div id="project-name-display" style="color: var(--jettra-accent); font-weight: bold; font-size: 15px; margin-bottom: 8px;">None Selected</div>
-                <div id="project-path-display" style="font-size: 11px; color: #8b949e; word-break: break-all; line-height: 1.5;">Select a project to begin</div>
-                <button class="j-btn" style="width: 100%; margin-top: 12px; font-size: 12px; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #21262d; border: 1px solid var(--jettra-border);" onclick="requestWorkspaceFiles()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                    Refresh Files
-                </button>
+            .explorer-item {
+                padding: 6px 12px;
+                cursor: pointer;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                border-radius: 4px;
+                margin: 1px 4px;
+                transition: all 0.1s;
+                color: #c9d1d9;
+            }
+            .explorer-item:hover {
+                background: rgba(255,255,255,0.05);
+            }
+            .file-page {
+                color: #79c0ff;
+            }
+            .file-model {
+                color: #aff5b4;
+            }
+
+            .inspector-row {
+                margin-bottom: 12px;
+                padding: 0 4px;
+            }
+            .inspector-label {
+                display: block;
+                font-size: 11px;
+                color: #8b949e;
+                margin-bottom: 6px;
+                text-transform: uppercase;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+            }
+            .inspector-input {
+                width: 100%;
+            }
+
+            .property-inspector {
+                width: 320px;
+                background: #161b22;
+                border-left: 1px solid var(--jettra-border);
+                display: none;
+                flex-direction: column;
+                padding: 16px;
+                overflow-y: auto;
+                box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+            }
+
+            /* Palette Styles */
+            .palette-category {
+                margin-bottom: 20px;
+            }
+            .palette-cat-title {
+                font-size: 10px;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                font-weight: 700;
+                margin-bottom: 12px;
+                padding-left: 5px;
+                border-left: 2px solid var(--jettra-accent);
+            }
+            .palette-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+            .palette-item {
+                background: #21262d;
+                border: 1px solid var(--jettra-border);
+                border-radius: 10px;
+                aspect-ratio: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                cursor: grab;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            .palette-item:hover {
+                background: #30363d;
+                border-color: var(--jettra-accent);
+                transform: scale(1.05);
+                box-shadow: 0 0 15px rgba(0,255,255,0.2);
+                z-index: 10;
+            }
+            .palette-item svg {
+                width: 24px;
+                height: 24px;
+                stroke: #c9d1d9;
+                fill: none;
+                stroke-width: 1.8;
+                transition: all 0.2s;
+            }
+            .palette-item:hover svg {
+                stroke: var(--jettra-accent);
+                filter: drop-shadow(0 0 3px var(--jettra-accent));
+            }
+
+            .palette-item::after {
+                content: attr(title);
+                position: absolute;
+                bottom: -20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #30363d;
+                color: #fff;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 9px;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s;
+                z-index: 20;
+            }
+            .palette-item:hover::after {
+                opacity: 1;
+            }
+
+            /* Designer Tabs */
+            .designer-tabs {
+                display: flex;
+                background: #161b22;
+                border-bottom: 1px solid var(--jettra-border);
+                padding: 0 10px;
+                gap: 4px;
+                align-items: flex-end;
+                height: 38px;
+            }
+            .designer-tab {
+                padding: 6px 15px;
+                background: #161b22;
+                border: 1px solid var(--jettra-border);
+                border-bottom: none;
+                border-radius: 6px 6px 0 0;
+                font-size: 11px;
+                color: #8b949e;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.2s;
+                margin-top: 5px;
+            }
+            .designer-tab:hover {
+                background: #21262d;
+                color: var(--jettra-text);
+            }
+            .designer-tab.active {
+                background: var(--jettra-bg);
+                color: var(--jettra-accent);
+                border-top: 2px solid var(--jettra-accent);
+                font-weight: bold;
+            }
+            .designer-tab-close {
+                margin-left: 5px;
+                color: #f85149;
+                font-weight: bold;
+                opacity: 0.5;
+            }
+            .designer-tab-close:hover {
+                opacity: 1;
+            }
+
+            /* Code Area (Bottom Panel) */
+            .code-area {
+                height: 300px;
+                background: #010409;
+                border-top: 1px solid var(--jettra-border);
+                display: flex;
+                flex-direction: column;
+                transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+            }
+            .code-area.collapsed {
+                height: 35px;
+                overflow: hidden;
+            }
+            .code-header {
+                padding: 8px 15px;
+                background: #161b22;
+                border-bottom: 1px solid var(--jettra-border);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                height: 35px;
+                box-sizing: border-box;
+            }
+            .code-display {
+                flex: 1;
+                background: #0d1117;
+                color: #d1d5db;
+                font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                font-size: 12px;
+                padding: 15px;
+                border: none;
+                resize: none;
+                outline: none;
+                line-height: 1.6;
+                overflow: auto;
+                white-space: pre;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <div class="sidebar-tabs">
+                <div id="tab-btn-project" class="sidebar-tab active" onclick="showSidebarTab('project')">Project</div>
+                <div id="tab-btn-palette" class="sidebar-tab" onclick="showSidebarTab('palette')">Palette</div>
             </div>
-            
-            <div id="project-explorer" style="padding: 10px; display: none;">
-                <div style="font-size: 10px; color: var(--jettra-accent); margin-bottom: 8px; font-weight: bold; text-transform: uppercase;">Explorer</div>
-                <div id="file-tree"></div>
+
+            <div id="tab-project" class="tab-content active">
+                <div class="project-info-section">
+                    <div style="font-size: 10px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Active Project</div>
+                    <div id="project-name-display" style="color: var(--jettra-accent); font-weight: bold; font-size: 15px; margin-bottom: 8px;">None Selected</div>
+                    <div id="project-path-display" style="font-size: 11px; color: #8b949e; word-break: break-all; line-height: 1.5;">Select a project to begin</div>
+                    <button class="j-btn" style="width: 100%; margin-top: 12px; font-size: 12px; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #21262d; border: 1px solid var(--jettra-border);" onclick="requestWorkspaceFiles()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                        Refresh Files
+                    </button>
+                </div>
+
+                <div id="project-explorer" style="padding: 10px; display: none;">
+                    <div style="font-size: 10px; color: var(--jettra-accent); margin-bottom: 8px; font-weight: bold; text-transform: uppercase;">Explorer</div>
+                    <div id="file-tree"></div>
+                </div>
+            </div>
+
+            <div id="tab-palette" class="tab-content">
+                <div id="palette-container" style="padding: 10px;"></div>
             </div>
         </div>
 
-        <div id="tab-palette" class="tab-content">
-            <div id="palette-container" style="padding: 10px;"></div>
-        </div>
-    </div>
-    
-    <div class="main-area">
-        <div class="topbar">
-            <span style="font-size: 14px; font-weight: bold; color: var(--jettra-accent); letter-spacing: 0.5px;">Jettra NB Designer</span>
-            <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
-                <!-- Zoom Controls -->
-                <div style="display: flex; align-items: center; gap: 5px; padding: 0 10px; border-left: 1px solid var(--jettra-border); background: rgba(0,0,0,0.2); border-radius: 6px; height: 28px;">
-                    <button class="j-btn" style="padding: 0 8px; height: 20px; line-height: 1; font-size: 14px; background: #333;" onclick="adjustZoom(-0.1)">-</button>
-                    <select id="zoom-select" class="j-input" style="width: 65px; margin: 0; padding: 2px; font-size: 10px; height: 20px; border: none; background: transparent;" onchange="setZoom(this.value)">
-                        <option value="0.25">25%</option>
-                        <option value="0.5">50%</option>
-                        <option value="0.75">75%</option>
-                        <option value="1" selected>100%</option>
-                        <option value="1.25">125%</option>
-                        <option value="1.5">150%</option>
-                        <option value="2">200%</option>
-                        <option value="3">300%</option>
+        <div class="main-area">
+            <div class="topbar">
+                <span style="font-size: 14px; font-weight: bold; color: var(--jettra-accent); letter-spacing: 0.5px;">Jettra NB Designer</span>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                    <!-- Zoom Controls -->
+                    <div style="display: flex; align-items: center; gap: 5px; padding: 0 10px; border-left: 1px solid var(--jettra-border); background: rgba(0,0,0,0.2); border-radius: 6px; height: 28px;">
+                        <button class="j-btn" style="padding: 0 8px; height: 20px; line-height: 1; font-size: 14px; background: #333;" onclick="adjustZoom(-0.1)">-</button>
+                        <select id="zoom-select" class="j-input" style="width: 65px; margin: 0; padding: 2px; font-size: 10px; height: 20px; border: none; background: transparent;" onchange="setZoom(this.value)">
+                            <option value="0.25">25%</option>
+                            <option value="0.5">50%</option>
+                            <option value="0.75">75%</option>
+                            <option value="1" selected>100%</option>
+                            <option value="1.25">125%</option>
+                            <option value="1.5">150%</option>
+                            <option value="2">200%</option>
+                            <option value="3">300%</option>
+                        </select>
+                        <button class="j-btn" style="padding: 0 8px; height: 20px; line-height: 1; font-size: 14px; background: #333;" onclick="adjustZoom(0.1)">+</button>
+                    </div>
+
+                    <span style="font-size: 11px;">Model:</span>
+                    <select id="model-select" class="j-input" style="width: 150px; margin: 0; padding: 4px;" onchange="selectModel(this.value)">
+                        <option value="">None</option>
                     </select>
-                    <button class="j-btn" style="padding: 0 8px; height: 20px; line-height: 1; font-size: 14px; background: #333;" onclick="adjustZoom(0.1)">+</button>
+                    <button class="j-btn j-btn-primary" style="padding: 4px 10px; display: flex; align-items: center; gap: 5px;" onclick="generateCRUD()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        CRUD
+                    </button>
+                    <button id="toggle-source-btn" class="j-btn" style="padding: 4px 10px; display: flex; align-items: center; gap: 5px; border-color: var(--jettra-accent);" onclick="toggleSourceTab()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        Code
+                    </button>
+                    <button class="j-btn" style="padding: 4px 10px;" onclick="generateCode()">Generate Java</button>
+                    <button class="j-btn j-btn-danger" style="padding: 4px 10px;" onclick="clearCanvas()">Clear</button>
                 </div>
+            </div>
 
-                <span style="font-size: 11px;">Model:</span>
-                <select id="model-select" class="j-input" style="width: 150px; margin: 0; padding: 4px;" onchange="selectModel(this.value)">
-                    <option value="">None</option>
-                </select>
-                <button class="j-btn j-btn-primary" style="padding: 4px 10px; display: flex; align-items: center; gap: 5px;" onclick="generateCRUD()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                    CRUD
-                </button>
-                <button id="toggle-source-btn" class="j-btn" style="padding: 4px 10px; display: flex; align-items: center; gap: 5px; border-color: var(--jettra-accent);" onclick="toggleSourceTab()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                    Code
-                </button>
-                <button class="j-btn" style="padding: 4px 10px;" onclick="generateCode()">Generate Java</button>
-                <button class="j-btn j-btn-danger" style="padding: 4px 10px;" onclick="clearCanvas()">Clear</button>
-            </div>
-        </div>
-        
-        <div class="canvas-area">
-            <div id="designer-tabs" class="designer-tabs">
-                <div id="tab-main" class="designer-tab active" onclick="switchDesignerTab('main')">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
-                    Main Page
+            <div class="canvas-area">
+                <div id="designer-tabs" class="designer-tabs">
+                    <div id="tab-main" class="designer-tab active" onclick="switchDesignerTab('main')">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                        Main Page
+                    </div>
                 </div>
-            </div>
-            <div id="viewports-container" style="flex: 1; position: relative; overflow: hidden; background: #010409;">
-                <div id="viewport-main" class="canvas-viewport active">
-                    <div style="padding: 100px; min-width: min-content; min-height: min-content;">
-                        <div id="canvas" class="canvas-drop-area" ondrop="drop(event)" ondragover="allowDrop(event)">
-                            <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:200px; font-size: 1.5rem;">Drag components here</div>
+                <div id="viewports-container" style="flex: 1; position: relative; overflow: hidden; background: #010409;">
+                    <div id="viewport-main" class="canvas-viewport active">
+                        <div style="padding: 100px; min-width: min-content; min-height: min-content;">
+                            <div id="canvas" class="canvas-drop-area" ondrop="drop(event)" ondragover="allowDrop(event)">
+                                <div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:200px; font-size: 1.5rem;">Drag components here</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Java Source Code Bottom Panel -->
-        <div id="code-area-panel" class="code-area collapsed">
-            <div class="code-header" onclick="toggleCodeArea()">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--jettra-accent); text-transform: uppercase; letter-spacing: 0.5px;">Java Source Code</span>
+
+            <!-- Java Source Code Bottom Panel -->
+            <div id="code-area-panel" class="code-area collapsed">
+                <div class="code-header" onclick="toggleCodeArea()">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        <span style="font-size: 11px; font-weight: bold; color: var(--jettra-accent); text-transform: uppercase; letter-spacing: 0.5px;">Java Source Code</span>
+                    </div>
+                    <div style="display:flex; gap:8px;" onclick="event.stopPropagation()">
+                        <button class="j-btn j-btn-primary" style="padding: 2px 12px; font-size: 10px; font-weight: bold; border-radius: 4px; height: 24px;" onclick="syncCodeToCanvas()">Sync to Canvas</button>
+                        <button class="j-btn" style="padding: 2px 10px; font-size: 10px; display: flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid var(--jettra-border); height: 24px;" onclick="saveGeneratedCode()">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save to File
+                        </button>
+                        <button class="j-btn" style="padding: 2px 8px; height: 24px; color: #8b949e;" onclick="toggleCodeArea()">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
+                    </div>
                 </div>
-                <div style="display:flex; gap:8px;" onclick="event.stopPropagation()">
-                    <button class="j-btn j-btn-primary" style="padding: 2px 12px; font-size: 10px; font-weight: bold; border-radius: 4px; height: 24px;" onclick="syncCodeToCanvas()">Sync to Canvas</button>
-                    <button class="j-btn" style="padding: 2px 10px; font-size: 10px; display: flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid var(--jettra-border); height: 24px;" onclick="saveGeneratedCode()">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Save to File
-                    </button>
-                    <button class="j-btn" style="padding: 2px 8px; height: 24px; color: #8b949e;" onclick="toggleCodeArea()">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
-                    </button>
-                </div>
+                <textarea id="code-display" class="code-display" placeholder="Java code will appear here..." spellcheck="false">// Generated code will appear here...</textarea>
             </div>
-            <textarea id="code-display" class="code-display" placeholder="Java code will appear here..." spellcheck="false">// Generated code will appear here...</textarea>
         </div>
-    </div>
     </div>
 
     <div id="property-inspector" class="property-inspector">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="font-size: 14px; font-weight: bold; color: var(--jettra-accent); margin: 0;">Properties</span>
-            <span style="color: #ff4444; font-size: 24px; cursor: pointer; line-height: 1; font-weight: bold;" onclick="document.getElementById('property-inspector').style.display='none'">&times;</span>
+            <span style="color: #ff4444; font-size: 24px; cursor: pointer; line-height: 1; font-weight: bold;" onclick="document.getElementById('property-inspector').style.display = 'none'">&times;</span>
         </div>
         <div id="inspector-properties" style="flex: 1;"></div>
     </div>
@@ -373,8 +576,8 @@
         let currentClassName = "GeneratedPage";
         let activeDesignerTab = 'main';
         let isSyncing = false;
-        let designerTabs = [{ id: 'main', title: 'Main Page' }];
-        
+        let designerTabs = [{id: 'main', title: 'Main Page'}];
+
         let currentZoom = 1.0;
 
         function setZoom(val) {
@@ -402,15 +605,15 @@
                     // Reset first to get natural size
                     parent.style.width = 'auto';
                     parent.style.height = 'auto';
-                    
+
                     const newW = c.scrollWidth * currentZoom;
                     const newH = c.scrollHeight * currentZoom;
-                    
+
                     parent.style.width = (newW + 200) + "px"; // Adding padding for comfort
                     parent.style.height = (newH + 200) + "px";
                 }
             });
-            
+
             // Sync the select dropdown if it's not already
             const select = document.getElementById('zoom-select');
             if (select) {
@@ -455,8 +658,10 @@
                 }
 
                 if (!inString) {
-                    if (char === '(') depth++;
-                    if (char === ')') depth--;
+                    if (char === '(')
+                        depth++;
+                    if (char === ')')
+                        depth--;
                     if (char === ',' && depth === 0) {
                         args.push(current.trim());
                         current = '';
@@ -465,17 +670,18 @@
                 }
                 current += char;
             }
-            if (current) args.push(current.trim());
+            if (current)
+                args.push(current.trim());
             return args;
         }
 
         function showSidebarTab(tabId) {
             document.querySelectorAll('.sidebar-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
+
             document.getElementById('tab-btn-' + tabId).classList.add('active');
             document.getElementById('tab-' + tabId).classList.add('active');
-            
+
             if (tabId === 'project' && Object.keys(fileCache).length === 0) {
                 requestWorkspaceFiles();
             }
@@ -485,7 +691,7 @@
             const panel = document.getElementById('code-panel');
             const arrow = document.getElementById('code-panel-arrow');
             panel.classList.toggle('collapsed');
-            
+
             if (panel.classList.contains('collapsed')) {
                 arrow.style.transform = 'rotate(-180deg)';
             } else {
@@ -501,7 +707,7 @@
             const panel = document.getElementById('code-area-panel');
             const btn = document.getElementById('toggle-source-btn');
             const isCollapsed = panel.classList.contains('collapsed');
-            
+
             if (isCollapsed) {
                 panel.classList.remove('collapsed');
                 btn.style.background = 'rgba(0,255,255,0.1)';
@@ -519,19 +725,22 @@
             activeDesignerTab = id;
             document.querySelectorAll('.designer-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.canvas-viewport').forEach(v => v.classList.remove('active'));
-            
+
             const tab = document.getElementById('tab-' + id);
             const viewport = document.getElementById('viewport-' + id);
-            
-            if (tab) tab.classList.add('active');
-            if (viewport) viewport.classList.add('active');
+
+            if (tab)
+                tab.classList.add('active');
+            if (viewport)
+                viewport.classList.add('active');
         }
 
         function addModalTab(modalId, title) {
-            if (designerTabs.find(t => t.id === modalId)) return;
-            
-            designerTabs.push({ id: modalId, title: title });
-            
+            if (designerTabs.find(t => t.id === modalId))
+                return;
+
+            designerTabs.push({id: modalId, title: title});
+
             const tabsContainer = document.getElementById('designer-tabs');
             const tab = document.createElement('div');
             tab.id = 'tab-' + modalId;
@@ -543,7 +752,7 @@
                 <span class="designer-tab-close" onclick="closeDesignerTab(event, '${modalId}')">&times;</span>
             `;
             tabsContainer.appendChild(tab);
-            
+
             const viewportsContainer = document.getElementById('viewports-container');
             const viewport = document.createElement('div');
             viewport.id = 'viewport-' + modalId;
@@ -554,21 +763,25 @@
                 </div>
             `;
             viewportsContainer.appendChild(viewport);
-            
+
             switchDesignerTab(modalId);
         }
 
         function closeDesignerTab(e, id) {
-            if (e) e.stopPropagation();
-            if (id === 'main') return;
-            
+            if (e)
+                e.stopPropagation();
+            if (id === 'main')
+                return;
+
             const index = designerTabs.findIndex(t => t.id === id);
             if (index > -1) {
                 designerTabs.splice(index, 1);
                 const tab = document.getElementById('tab-' + id);
                 const viewport = document.getElementById('viewport-' + id);
-                if (tab) tab.remove();
-                if (viewport) viewport.remove();
+                if (tab)
+                    tab.remove();
+                if (viewport)
+                    viewport.remove();
                 if (activeDesignerTab === id) {
                     switchDesignerTab('main');
                 }
@@ -577,7 +790,8 @@
         }
 
         function addDatatableColumn() {
-            if (!selectedElement) return;
+            if (!selectedElement)
+                return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             props.headers = props.headers || ['Col 1', 'Col 2'];
             props.headers.push('New Column');
@@ -588,7 +802,8 @@
         }
 
         function removeDatatableColumn(index) {
-            if (!selectedElement) return;
+            if (!selectedElement)
+                return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             props.headers = props.headers || ['Col 1', 'Col 2'];
             props.headers.splice(index, 1);
@@ -599,7 +814,8 @@
         }
 
         function updateDatatableColumn(index, value) {
-            if (!selectedElement) return;
+            if (!selectedElement)
+                return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             props.headers = props.headers || ['Col 1', 'Col 2'];
             props.headers[index] = value;
@@ -611,58 +827,131 @@
         function refreshComponentPreview(el) {
             const type = el.getAttribute('data-type');
             const p = JSON.parse(el.getAttribute('data-props') || '{}');
-            
+
             let content = '';
-            switch(type) {
-                case 'Clock': content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>'; break;
-                case 'Header': 
+            switch (type) {
+                case 'Clock':
+                    content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>';
+                    break;
+                case 'Header':
                     const hLevel = p.level || '2';
                     const hText = p.text || 'Header';
-                    content = `<h${hLevel} style="margin:0; color:var(--jettra-text);">${hText}</h${hLevel}>`; 
+                    content = `<h${hLevel} style="margin:0; color:var(--jettra-text);">${hText}</h${hLevel}>`;
                     break;
-                case 'Paragraph': content = `<p style="margin:0; color:var(--jettra-text);">${p.text || 'Sample text...'}</p>`; break;
-                case 'Span': content = `<span style="color:var(--jettra-text);">${p.text || 'Span Text'}</span>`; break;
-                case 'Label': content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`; break;
-                case 'Divide': content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>'; break;
-                case 'Separator': content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">'; break;
-                case 'Button': content = `<button class="j-btn j-btn-primary" type="button">${p.text || 'Button'}</button>`; break;
-                case 'TextBox': content = '<input type="text" class="j-input" placeholder="TextBox..." onfocus="this.blur()">'; break;
-                case 'TextArea': content = '<textarea class="j-input" placeholder="TextArea..." rows="3" onfocus="this.blur()"></textarea>'; break;
-                case 'CheckBox': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" checked onfocus="this.blur()"/><label>CheckBox</label></div>'; break;
-                case 'RadioButton': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="radio" checked onfocus="this.blur()"/><label>RadioButton</label></div>'; break;
-                case 'RadioGroupButton': content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">Radio Group</label></div>'; break;
-                case 'CheckBoxGroup': content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">CheckBox Group</label></div>'; break;
-                case 'ScheduleControl': content = '<input type="datetime-local" class="j-input" onfocus="this.blur()"/>'; break;
-                case 'SelectOne': content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select</label><select class="j-input" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectOne</span>'; break;
-                case 'SelectMany': content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select Multiple</label><select class="j-input" multiple="multiple" style="height:80px" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectMany</span>'; break;
-                case 'SelectOneIcon': content = '<select class="j-input" onfocus="this.blur()"><option>Icon Option 1...</option></select><span style="display:none">SelectOneIcon</span>'; break;
-                case 'Spinner': content = '<div class="j-spinner-wrapper" style="display:inline-flex; align-items:center; border:1px solid var(--jettra-border); border-radius:8px; background:rgba(0,0,0,0.3); overflow:hidden;"><button type="button" class="j-spinner-btn j-spinner-minus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">-</button><div class="j-spinner-display" style="min-width:60px;text-align:center;font-family:monospace;font-size:1.1rem;color:var(--jettra-text);">0</div><button type="button" class="j-spinner-btn j-spinner-plus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">+</button></div>'; break;
-                case 'ToggleSwitch': content = '<div style="display:flex; align-items:center; gap:8px;"><div style="width:40px;height:20px;background:var(--jettra-accent);border-radius:10px;position:relative;"><div style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;"></div></div><label>ToggleSwitch</label></div>'; break;
-                case 'FileUpload': content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><span>Click or drag files here to upload</span></div>'; break;
-                case 'FolderSelector': content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><span>Select Directory</span></div>'; break;
-                case 'OTPValidator': content = '<div class="j-component" style="display:flex; justify-content:center; gap:5px; padding:10px;"><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/></div>'; break;
-                case 'Catcha': content = '<div class="j-component" style="padding:10px; border:1px solid #aaa; border-radius:4px; display:inline-flex; align-items:center; gap:10px; background:#f9f9f9;"><input type="checkbox" disabled/> <span style="color:#333; font-family:sans-serif">I&#39;m not a robot</span></div>'; break;
-                case 'CreditCard': content = '<div class="j-component" style="padding:15px; border:1px solid rgba(0,255,255,0.2); border-radius:12px; background:linear-gradient(145deg, #1e293b, #0f172a); min-height:100px; display:flex; flex-direction:column; gap:10px; width:280px;"><div style="font-family:monospace; font-size:16px; color:#fff; letter-spacing:2px; margin-top:20px;">**** **** **** ****</div><div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:10px;"><span class="cc-name-mock">NAME SURNAME</span><span>MM/YY</span></div><button class="j-btn j-btn-primary" style="margin-top:10px; width:100%; border-radius:8px; padding:10px;" disabled>Pay Now</button><div class="canvas-container" style="min-height:30px; border:1px dashed rgba(255,255,255,0.1); margin-top:5px; padding:5px;"></div></div>'; break;
-                case 'Link': content = '<a href="javascript:void(0)" style="color:var(--jettra-accent); text-decoration:underline;"><span>Link Text</span></a>'; break;
-                case 'Menu': content = '<div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:inline-block;"><div style="padding:8px 15px; cursor:pointer;"><span>Menu Item</span></div></div>'; break;
-                case 'MenuBar': content = '<div class="canvas-container" style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:flex; gap:15px; min-height:45px; border:1px dashed rgba(255,255,255,0.2);"></div>'; break;
-                case 'MenuItem': content = '<div class="j-component" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"><span>Menu Item</span></div>'; break;
-                case 'Loading': content = '<div class="j-loading" style="display:inline-flex; align-items:center; justify-content:center; padding:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--jettra-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg></div>'; break;
-                case 'Alert': content = '<div style="background:rgba(255,0,0,0.1); border-left:4px solid #ff4444; padding:15px; border-radius:4px; color:#ff4444; display:flex; align-items:center; gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Alert Message</span></div>'; break;
-                case 'Notification': content = '<div style="background:rgba(0,255,255,0.1); border:1px solid var(--jettra-accent); padding:15px; border-radius:8px; color:var(--jettra-text); max-width:300px; box-shadow:0 4px 12px rgba(0,0,0,0.3);"><span>Notification Message</span></div>'; break;
-                case 'Downloader': content = '<div style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download File</span></div>'; break;
-                case 'PDFViewer': content = '<div style="border:1px solid #aaa; background:#eee; color:#333; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><span>PDF Document Preview</span></div>'; break;
-                case 'ViewMedia': content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>'; break;
-                case 'BarCode': content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>'; break;
-                case 'Carousel': content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>'; break;
-                case 'TabView': {
+                case 'Paragraph':
+                    content = `<p style="margin:0; color:var(--jettra-text);">${p.text || 'Sample text...'}</p>`;
+                    break;
+                case 'Span':
+                    content = `<span style="color:var(--jettra-text);">${p.text || 'Span Text'}</span>`;
+                    break;
+                case 'Label':
+                    content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`;
+                    break;
+                case 'Divide':
+                    content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>';
+                    break;
+                case 'Separator':
+                    content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">';
+                    break;
+                case 'Button':
+                    content = `<button class="j-btn j-btn-primary" type="button">${p.text || 'Button'}</button>`;
+                    break;
+                case 'TextBox':
+                    content = '<input type="text" class="j-input" placeholder="TextBox..." onfocus="this.blur()">';
+                    break;
+                case 'TextArea':
+                    content = '<textarea class="j-input" placeholder="TextArea..." rows="3" onfocus="this.blur()"></textarea>';
+                    break;
+                case 'CheckBox':
+                    content = '<div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" checked onfocus="this.blur()"/><label>CheckBox</label></div>';
+                    break;
+                case 'RadioButton':
+                    content = '<div style="display:flex; align-items:center; gap:8px;"><input type="radio" checked onfocus="this.blur()"/><label>RadioButton</label></div>';
+                    break;
+                case 'RadioGroupButton':
+                    content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">Radio Group</label></div>';
+                    break;
+                case 'CheckBoxGroup':
+                    content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">CheckBox Group</label></div>';
+                    break;
+                case 'ScheduleControl':
+                    content = '<input type="datetime-local" class="j-input" onfocus="this.blur()"/>';
+                    break;
+                case 'SelectOne':
+                    content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select</label><select class="j-input" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectOne</span>';
+                    break;
+                case 'SelectMany':
+                    content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select Multiple</label><select class="j-input" multiple="multiple" style="height:80px" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectMany</span>';
+                    break;
+                case 'SelectOneIcon':
+                    content = '<select class="j-input" onfocus="this.blur()"><option>Icon Option 1...</option></select><span style="display:none">SelectOneIcon</span>';
+                    break;
+                case 'Spinner':
+                    content = '<div class="j-spinner-wrapper" style="display:inline-flex; align-items:center; border:1px solid var(--jettra-border); border-radius:8px; background:rgba(0,0,0,0.3); overflow:hidden;"><button type="button" class="j-spinner-btn j-spinner-minus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">-</button><div class="j-spinner-display" style="min-width:60px;text-align:center;font-family:monospace;font-size:1.1rem;color:var(--jettra-text);">0</div><button type="button" class="j-spinner-btn j-spinner-plus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">+</button></div>';
+                    break;
+                case 'ToggleSwitch':
+                    content = '<div style="display:flex; align-items:center; gap:8px;"><div style="width:40px;height:20px;background:var(--jettra-accent);border-radius:10px;position:relative;"><div style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;"></div></div><label>ToggleSwitch</label></div>';
+                    break;
+                case 'FileUpload':
+                    content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><span>Click or drag files here to upload</span></div>';
+                    break;
+                case 'FolderSelector':
+                    content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><span>Select Directory</span></div>';
+                    break;
+                case 'OTPValidator':
+                    content = '<div class="j-component" style="display:flex; justify-content:center; gap:5px; padding:10px;"><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/></div>';
+                    break;
+                case 'Catcha':
+                    content = '<div class="j-component" style="padding:10px; border:1px solid #aaa; border-radius:4px; display:inline-flex; align-items:center; gap:10px; background:#f9f9f9;"><input type="checkbox" disabled/> <span style="color:#333; font-family:sans-serif">I&#39;m not a robot</span></div>';
+                    break;
+                case 'CreditCard':
+                    content = '<div class="j-component" style="padding:15px; border:1px solid rgba(0,255,255,0.2); border-radius:12px; background:linear-gradient(145deg, #1e293b, #0f172a); min-height:100px; display:flex; flex-direction:column; gap:10px; width:280px;"><div style="font-family:monospace; font-size:16px; color:#fff; letter-spacing:2px; margin-top:20px;">**** **** **** ****</div><div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:10px;"><span class="cc-name-mock">NAME SURNAME</span><span>MM/YY</span></div><button class="j-btn j-btn-primary" style="margin-top:10px; width:100%; border-radius:8px; padding:10px;" disabled>Pay Now</button><div class="canvas-container" style="min-height:30px; border:1px dashed rgba(255,255,255,0.1); margin-top:5px; padding:5px;"></div></div>';
+                    break;
+                case 'Link':
+                    content = '<a href="javascript:void(0)" style="color:var(--jettra-accent); text-decoration:underline;"><span>Link Text</span></a>';
+                    break;
+                case 'Menu':
+                    content = '<div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:inline-block;"><div style="padding:8px 15px; cursor:pointer;"><span>Menu Item</span></div></div>';
+                    break;
+                case 'MenuBar':
+                    content = '<div class="canvas-container" style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:flex; gap:15px; min-height:45px; border:1px dashed rgba(255,255,255,0.2);"></div>';
+                    break;
+                case 'MenuItem':
+                    content = '<div class="j-component" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"><span>Menu Item</span></div>';
+                    break;
+                case 'Loading':
+                    content = '<div class="j-loading" style="display:inline-flex; align-items:center; justify-content:center; padding:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--jettra-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg></div>';
+                    break;
+                case 'Alert':
+                    content = '<div style="background:rgba(255,0,0,0.1); border-left:4px solid #ff4444; padding:15px; border-radius:4px; color:#ff4444; display:flex; align-items:center; gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Alert Message</span></div>';
+                    break;
+                case 'Notification':
+                    content = '<div style="background:rgba(0,255,255,0.1); border:1px solid var(--jettra-accent); padding:15px; border-radius:8px; color:var(--jettra-text); max-width:300px; box-shadow:0 4px 12px rgba(0,0,0,0.3);"><span>Notification Message</span></div>';
+                    break;
+                case 'Downloader':
+                    content = '<div style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download File</span></div>';
+                    break;
+                case 'PDFViewer':
+                    content = '<div style="border:1px solid #aaa; background:#eee; color:#333; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><span>PDF Document Preview</span></div>';
+                    break;
+                case 'ViewMedia':
+                    content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>';
+                    break;
+                case 'BarCode':
+                    content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>';
+                    break;
+                case 'Carousel':
+                    content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>';
+                    break;
+                case 'TabView':
+                {
                     const orient = p.orientation || 'TOP';
                     let mainStyle = 'display: flex; border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; overflow: hidden;';
                     let layoutStyle = 'display: flex; flex: 1;';
                     let headerAreaStyle = 'display: flex; background: rgba(0,0,0,0.3); flex-direction: column;';
                     let tabsStyle = 'display: flex;';
                     let containerStyle = 'padding: 15px; min-height: 100px; background: rgba(0,255,255,0.02); flex: 1;';
-                    
+
                     const titleHtml = p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : '';
                     let tabTitlesHtml = '';
                     const existingContainer = el.querySelector('.canvas-container');
@@ -710,11 +999,19 @@
                     }
                     break;
                 }
-                case 'Tab': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>'; break;
-                case 'Tree': content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>'; break;
-                case 'TreeItem': content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>'; break;
-                case 'TrafficLight': content = '<div class="j-trafficlight" style="display:flex; flex-direction:column; gap:4px; width:24px; padding:6px; background:#111; border-radius:12px; border:2px solid #333; margin:auto;"><div style="width:12px; height:12px; border-radius:50%; background:#500;"></div><div style="width:12px; height:12px; border-radius:50%; background:#550;"></div><div style="width:12px; height:12px; border-radius:50%; background:#050;"></div></div>'; break;
-                case 'Datatable': 
+                case 'Tab':
+                    content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>';
+                    break;
+                case 'Tree':
+                    content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>';
+                    break;
+                case 'TreeItem':
+                    content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>';
+                    break;
+                case 'TrafficLight':
+                    content = '<div class="j-trafficlight" style="display:flex; flex-direction:column; gap:4px; width:24px; padding:6px; background:#111; border-radius:12px; border:2px solid #333; margin:auto;"><div style="width:12px; height:12px; border-radius:50%; background:#500;"></div><div style="width:12px; height:12px; border-radius:50%; background:#550;"></div><div style="width:12px; height:12px; border-radius:50%; background:#050;"></div></div>';
+                    break;
+                case 'Datatable':
                     const headers = p.headers || ['Col 1', 'Col 2'];
                     content = `
                         <table style="width:100%;border-collapse:collapse;border:1px solid var(--jettra-border);">
@@ -724,10 +1021,14 @@
                             <tr>
                                 ${headers.map(() => `<td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row Data</td>`).join('')}
                             </tr>
-                        </table>`; 
+                        </table>`;
                     break;
-                case 'Panel': content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>'; break;
-                case 'Div': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px; position:relative;">Div Container</div>'; break;
+                case 'Panel':
+                    content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>';
+                    break;
+                case 'Div':
+                    content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px; position:relative;">Div Container</div>';
+                    break;
                 case 'Modal':
                 case 'Dialog':
                     const mId = p.id || 'modal_unknown';
@@ -736,13 +1037,18 @@
                         <div style="font-size:10px; opacity:0.7; color:#fff;">Click to edit content</div>
                     </div>`;
                     break;
-                case 'FormGroup': content = `<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">${p.text || 'Form Group'}</label></div>`; break;
-                case 'Center': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.1); padding:20px;"></div>'; break;
-                case 'UIComponent': 
+                case 'FormGroup':
+                    content = `<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">${p.text || 'Form Group'}</label></div>`;
+                    break;
+                case 'Center':
+                    content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.1); padding:20px;"></div>';
+                    break;
+                case 'UIComponent':
                     const tag = p.text || 'div';
                     content = `<${tag} class="canvas-container" style="min-height:20px; border:1px dotted rgba(255,255,255,0.2); padding:10px; font-family:monospace; font-size:10px; color:#666;">&lt;${tag}&gt;</${tag}>`;
                     break;
-                default: content = `<div class="canvas-container" style="min-height:20px; border:1px solid #333; padding:5px;">${type} ${p.text || ''}</div>`;
+                default:
+                    content = `<div class="canvas-container" style="min-height:20px; border:1px solid #333; padding:5px;">${type} ${p.text || ''}</div>`;
             }
 
             // Preservation of children for container components
@@ -761,14 +1067,18 @@
 
         // Setup Palette
         const categories = {
-            "Layout": ["Grid", "Panel", "Board", "Card", "Avatar", "Carousel", "Datatable", "TabView", "Tab", "Modal",  "Div", "LayoutDisplay", "Map", "TrafficLight"],
-            "Typography": ["Header", "Paragraph", "Span",  "Separator", "Divide"],
-            "Forms": ["FormGroup", "Label", "TextBox", "TextArea","Button", "CheckBox", "CheckBoxGroup", "CreditCard", "RadioButton", "RadioGroupButton", "ScheduleControl", "SelectOne", "SelectMany", "SelectOneIcon", "ToggleSwitch", "FileUpload", "FolderSelector", "OTPValidator", "Catcha","Tree", "TreeItem"],
-            "Date": ["Clock","DatePicker", "Time", "Calendar", "Schedule", "Organigram", "Timeline"],
+            "Layout": ["Grid", "Panel", "Board", "Card", "TabView", "Tab", "Modal", "Div", "LayoutDisplay"],
+            "Typography": ["Header", "Paragraph", "Span", "Separator", "Divide"],
+            "Forms": ["FormGroup", "Label", "TextBox", "TextArea", "Button", "CheckBox", "CheckBoxGroup", "RadioButton", "RadioGroupButton", "ScheduleControl", "SelectOne", "SelectMany", "SelectOneIcon", "ToggleSwitch", "Tree", "TreeItem"],
+            "Data": ["Carousel", "Datatable", "Map"],
+            "File": ["FileUpload", "FolderSelector"],
+            "Date": ["Clock", "DatePicker", "Time", "Calendar", "Schedule", "Organigram", "Timeline"],
             "Navigation": ["Link", "Menu", "MenuBar", "MenuItem"],
-            "Feedback": ["ProgressBar", "Spinner", "Loading", "Alert", "Notification"],
+            "Feedback": ["ProgressBar", "Spinner", "Loading", "Alert", "Notification", "TrafficLight"],
             "Media": ["Downloader", "PDFViewer", "ViewMedia", "BarCode", "Draw"],
-            "Charts": ["ChartsBar", "ChartsDoughnut", "ChartsLine", "ChartsPie", "ChartsRadar"]
+            "Charts": ["ChartsBar", "ChartsDoughnut", "ChartsLine", "ChartsPie", "ChartsRadar"],
+            "Misc": ["Avatar", "CreditCard", "OTPValidator", "Catcha"]
+            
 
         };
 
@@ -846,10 +1156,10 @@
             let catDiv = document.createElement('div');
             catDiv.className = 'palette-category';
             catDiv.innerHTML = `<div class="palette-cat-title">${cat}</div>`;
-            
+
             let grid = document.createElement('div');
             grid.className = 'palette-grid';
-            
+
             categories[cat].forEach(comp => {
                 let item = document.createElement('div');
                 item.className = 'palette-item';
@@ -862,7 +1172,7 @@
                 };
                 grid.appendChild(item);
             });
-            
+
             catDiv.appendChild(grid);
             paletteContainer.appendChild(catDiv);
         }
@@ -882,9 +1192,10 @@
             if (target) {
                 target.classList.remove('drag-over');
             }
-            
+
             const data = ev.dataTransfer.getData("text/plain");
-            if (!data) return;
+            if (!data)
+                return;
 
             if (data.startsWith('file:')) {
                 loadFileContentToCanvas(data.substring(5));
@@ -897,25 +1208,29 @@
 
         document.addEventListener('dragleave', (e) => {
             const target = e.target.closest('.canvas-drop-area, .canvas-container');
-            if (target) target.classList.remove('drag-over');
+            if (target)
+                target.classList.remove('drag-over');
         });
 
         function addComponent(type, parent, customId, initialProps) {
             const canvas = parent || document.querySelector('.canvas-viewport.active .canvas-drop-area');
-            if (!canvas) return;
+            if (!canvas)
+                return;
 
             // Restrict Tab components to TabView
             if (type === 'Tab') {
                 const parentItem = canvas.closest('.canvas-item');
                 if (!parentItem || parentItem.getAttribute('data-type') !== 'TabView') {
-                    if (window.javaConnector) window.javaConnector.showError("Error: Los componentes Tab solo pueden añadirse dentro de un TabView.");
+                    if (window.javaConnector)
+                        window.javaConnector.showError("Error: Los componentes Tab solo pueden añadirse dentro de un TabView.");
                     return;
                 }
             }
-            
+
             const placeholder = canvas.querySelector('.canvas-placeholder');
-            if (placeholder) placeholder.style.display = 'none';
-            
+            if (placeholder)
+                placeholder.style.display = 'none';
+
             const el = document.createElement('div');
             el.className = 'canvas-item';
             const compId = customId || (type.toLowerCase() + '_' + Date.now());
@@ -924,59 +1239,132 @@
             const props = initialProps || {id: compId, text: type};
             el.setAttribute('data-props', JSON.stringify(props));
             el.draggable = true;
-            
+
             let content = '';
             const p = JSON.parse(el.getAttribute('data-props'));
-            switch(type) {
-                case 'Clock': content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>'; break;
-                case 'Header': 
+            switch (type) {
+                case 'Clock':
+                    content = '<div class="j-component live-clock" style="font-size: 20px; font-weight: bold; color: #0f0; background: #000; padding: 10px; border-radius: 8px; border: 2px solid #333; display:inline-block; font-family: monospace;">12:00:00 AM</div>';
+                    break;
+                case 'Header':
                     const hLevel = p.level || '2';
                     const hText = p.text || 'Header';
-                    content = `<h${hLevel} style="margin:0; color:var(--jettra-text);">${hText}</h${hLevel}>`; 
+                    content = `<h${hLevel} style="margin:0; color:var(--jettra-text);">${hText}</h${hLevel}>`;
                     break;
-                case 'Paragraph': content = `<p style="margin:0; color:var(--jettra-text);">${p.text || 'Sample text...'}</p>`; break;
-                case 'Span': content = `<span style="color:var(--jettra-text);">${p.text || 'Span Text'}</span>`; break;
-                case 'Label': content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`; break;
-                case 'Divide': content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>'; break;
-                case 'Separator': content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">'; break;
-                case 'Button': content = `<button class="j-btn j-btn-primary" type="button">${p.text || 'Button'}</button>`; break;
-                case 'TextBox': content = '<input type="text" class="j-input" placeholder="TextBox..." onfocus="this.blur()">'; break;
-                case 'TextArea': content = '<textarea class="j-input" placeholder="TextArea..." rows="3" onfocus="this.blur()"></textarea>'; break;
-                case 'CheckBox': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" checked onfocus="this.blur()"/><label>CheckBox</label></div>'; break;
-                case 'RadioButton': content = '<div style="display:flex; align-items:center; gap:8px;"><input type="radio" checked onfocus="this.blur()"/><label>RadioButton</label></div>'; break;
-                case 'RadioGroupButton': content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">Radio Group</label></div>'; break;
-                case 'CheckBoxGroup': content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">CheckBox Group</label></div>'; break;
-                case 'ScheduleControl': content = '<input type="datetime-local" class="j-input" onfocus="this.blur()"/>'; break;
-                case 'SelectOne': content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select</label><select class="j-input" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectOne</span>'; break;
-                case 'SelectMany': content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select Multiple</label><select class="j-input" multiple="multiple" style="height:80px" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectMany</span>'; break;
-                case 'SelectOneIcon': content = '<select class="j-input" onfocus="this.blur()"><option>Icon Option 1...</option></select><span style="display:none">SelectOneIcon</span>'; break;
-                case 'Spinner': content = '<div class="j-spinner-wrapper" style="display:inline-flex; align-items:center; border:1px solid var(--jettra-border); border-radius:8px; background:rgba(0,0,0,0.3); overflow:hidden;"><button type="button" class="j-spinner-btn j-spinner-minus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">-</button><div class="j-spinner-display" style="min-width:60px;text-align:center;font-family:monospace;font-size:1.1rem;color:var(--jettra-text);">0</div><button type="button" class="j-spinner-btn j-spinner-plus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">+</button></div>'; break;
-                case 'ToggleSwitch': content = '<div style="display:flex; align-items:center; gap:8px;"><div style="width:40px;height:20px;background:var(--jettra-accent);border-radius:10px;position:relative;"><div style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;"></div></div><label>ToggleSwitch</label></div>'; break;
-                case 'FileUpload': content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><span>Click or drag files here to upload</span></div>'; break;
-                case 'FolderSelector': content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><span>Select Directory</span></div>'; break;
-                case 'OTPValidator': content = '<div class="j-component" style="display:flex; justify-content:center; gap:5px; padding:10px;"><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/></div>'; break;
-                case 'Catcha': content = '<div class="j-component" style="padding:10px; border:1px solid #aaa; border-radius:4px; display:inline-flex; align-items:center; gap:10px; background:#f9f9f9;"><input type="checkbox" disabled/> <span style="color:#333; font-family:sans-serif">I&#39;m not a robot</span></div>'; break;
-                case 'CreditCard': content = '<div class="j-component" style="padding:15px; border:1px solid rgba(0,255,255,0.2); border-radius:12px; background:linear-gradient(145deg, #1e293b, #0f172a); min-height:100px; display:flex; flex-direction:column; gap:10px; width:280px;"><div style="font-family:monospace; font-size:16px; color:#fff; letter-spacing:2px; margin-top:20px;">**** **** **** ****</div><div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:10px;"><span class="cc-name-mock">NAME SURNAME</span><span>MM/YY</span></div><button class="j-btn j-btn-primary" style="margin-top:10px; width:100%; border-radius:8px; padding:10px;" disabled>Pay Now</button><div class="canvas-container" style="min-height:30px; border:1px dashed rgba(255,255,255,0.1); margin-top:5px; padding:5px;"></div></div>'; break;
-                case 'Link': content = '<a href="javascript:void(0)" style="color:var(--jettra-accent); text-decoration:underline;"><span>Link Text</span></a>'; break;
-                case 'Menu': content = '<div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:inline-block;"><div style="padding:8px 15px; cursor:pointer;"><span>Menu Item</span></div></div>'; break;
-                case 'MenuBar': content = '<div class="canvas-container" style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:flex; gap:15px; min-height:45px; border:1px dashed rgba(255,255,255,0.2);"></div>'; break;
-                case 'MenuItem': content = '<div class="j-component" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"><span>Menu Item</span></div>'; break;
-                case 'Loading': content = '<div class="j-loading" style="display:inline-flex; align-items:center; justify-content:center; padding:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--jettra-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg></div>'; break;
-                case 'Alert': content = '<div style="background:rgba(255,0,0,0.1); border-left:4px solid #ff4444; padding:15px; border-radius:4px; color:#ff4444; display:flex; align-items:center; gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Alert Message</span></div>'; break;
-                case 'Notification': content = '<div style="background:rgba(0,255,255,0.1); border:1px solid var(--jettra-accent); padding:15px; border-radius:8px; color:var(--jettra-text); max-width:300px; box-shadow:0 4px 12px rgba(0,0,0,0.3);"><span>Notification Message</span></div>'; break;
-                case 'Downloader': content = '<div style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download File</span></div>'; break;
-                case 'PDFViewer': content = '<div style="border:1px solid #aaa; background:#eee; color:#333; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><span>PDF Document Preview</span></div>'; break;
-                case 'ViewMedia': content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>'; break;
-                case 'BarCode': content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>'; break;
-                case 'Carousel': content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>'; break;
-                case 'TabView': {
+                case 'Paragraph':
+                    content = `<p style="margin:0; color:var(--jettra-text);">${p.text || 'Sample text...'}</p>`;
+                    break;
+                case 'Span':
+                    content = `<span style="color:var(--jettra-text);">${p.text || 'Span Text'}</span>`;
+                    break;
+                case 'Label':
+                    content = `<label style="color:var(--jettra-text); font-weight:bold;">${p.text || 'Label Text'}</label>`;
+                    break;
+                case 'Divide':
+                    content = '<div style="border-top:1px solid var(--jettra-border); margin:15px 0; width:100%"></div>';
+                    break;
+                case 'Separator':
+                    content = '<hr style="border: 0; border-top: 1px dashed var(--jettra-border); margin:15px 0; width:100%;">';
+                    break;
+                case 'Button':
+                    content = `<button class="j-btn j-btn-primary" type="button">${p.text || 'Button'}</button>`;
+                    break;
+                case 'TextBox':
+                    content = '<input type="text" class="j-input" placeholder="TextBox..." onfocus="this.blur()">';
+                    break;
+                case 'TextArea':
+                    content = '<textarea class="j-input" placeholder="TextArea..." rows="3" onfocus="this.blur()"></textarea>';
+                    break;
+                case 'CheckBox':
+                    content = '<div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" checked onfocus="this.blur()"/><label>CheckBox</label></div>';
+                    break;
+                case 'RadioButton':
+                    content = '<div style="display:flex; align-items:center; gap:8px;"><input type="radio" checked onfocus="this.blur()"/><label>RadioButton</label></div>';
+                    break;
+                case 'RadioGroupButton':
+                    content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">Radio Group</label></div>';
+                    break;
+                case 'CheckBoxGroup':
+                    content = '<div class="canvas-container" style="padding:10px; border:1px dashed var(--jettra-accent); min-height:60px;"><label style="font-weight:bold; color:var(--jettra-accent); display:block; margin-bottom:10px;">CheckBox Group</label></div>';
+                    break;
+                case 'ScheduleControl':
+                    content = '<input type="datetime-local" class="j-input" onfocus="this.blur()"/>';
+                    break;
+                case 'SelectOne':
+                    content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select</label><select class="j-input" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectOne</span>';
+                    break;
+                case 'SelectMany':
+                    content = '<div class="select-wrapper"><label style="display:block; font-size:11px; margin-bottom:4px; color:var(--jettra-accent)">Select Multiple</label><select class="j-input" multiple="multiple" style="height:80px" onfocus="this.blur()"><option>Option 1...</option></select></div><span style="display:none">SelectMany</span>';
+                    break;
+                case 'SelectOneIcon':
+                    content = '<select class="j-input" onfocus="this.blur()"><option>Icon Option 1...</option></select><span style="display:none">SelectOneIcon</span>';
+                    break;
+                case 'Spinner':
+                    content = '<div class="j-spinner-wrapper" style="display:inline-flex; align-items:center; border:1px solid var(--jettra-border); border-radius:8px; background:rgba(0,0,0,0.3); overflow:hidden;"><button type="button" class="j-spinner-btn j-spinner-minus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">-</button><div class="j-spinner-display" style="min-width:60px;text-align:center;font-family:monospace;font-size:1.1rem;color:var(--jettra-text);">0</div><button type="button" class="j-spinner-btn j-spinner-plus" style="width:40px;height:40px;background:rgba(255,255,255,0.05);border:none;color:var(--jettra-accent);font-size:1.2rem;font-weight:bold;">+</button></div>';
+                    break;
+                case 'ToggleSwitch':
+                    content = '<div style="display:flex; align-items:center; gap:8px;"><div style="width:40px;height:20px;background:var(--jettra-accent);border-radius:10px;position:relative;"><div style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;"></div></div><label>ToggleSwitch</label></div>';
+                    break;
+                case 'FileUpload':
+                    content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><span>Click or drag files here to upload</span></div>';
+                    break;
+                case 'FolderSelector':
+                    content = '<div style="border:1px dashed var(--jettra-accent); padding:20px; text-align:center; border-radius:8px; color:var(--jettra-text);"><div style="margin-bottom:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><span>Select Directory</span></div>';
+                    break;
+                case 'OTPValidator':
+                    content = '<div class="j-component" style="display:flex; justify-content:center; gap:5px; padding:10px;"><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/><input disabled style="width:30px; height:40px; text-align:center;" value="*"/></div>';
+                    break;
+                case 'Catcha':
+                    content = '<div class="j-component" style="padding:10px; border:1px solid #aaa; border-radius:4px; display:inline-flex; align-items:center; gap:10px; background:#f9f9f9;"><input type="checkbox" disabled/> <span style="color:#333; font-family:sans-serif">I&#39;m not a robot</span></div>';
+                    break;
+                case 'CreditCard':
+                    content = '<div class="j-component" style="padding:15px; border:1px solid rgba(0,255,255,0.2); border-radius:12px; background:linear-gradient(145deg, #1e293b, #0f172a); min-height:100px; display:flex; flex-direction:column; gap:10px; width:280px;"><div style="font-family:monospace; font-size:16px; color:#fff; letter-spacing:2px; margin-top:20px;">**** **** **** ****</div><div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:10px;"><span class="cc-name-mock">NAME SURNAME</span><span>MM/YY</span></div><button class="j-btn j-btn-primary" style="margin-top:10px; width:100%; border-radius:8px; padding:10px;" disabled>Pay Now</button><div class="canvas-container" style="min-height:30px; border:1px dashed rgba(255,255,255,0.1); margin-top:5px; padding:5px;"></div></div>';
+                    break;
+                case 'Link':
+                    content = '<a href="javascript:void(0)" style="color:var(--jettra-accent); text-decoration:underline;"><span>Link Text</span></a>';
+                    break;
+                case 'Menu':
+                    content = '<div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:inline-block;"><div style="padding:8px 15px; cursor:pointer;"><span>Menu Item</span></div></div>';
+                    break;
+                case 'MenuBar':
+                    content = '<div class="canvas-container" style="background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; display:flex; gap:15px; min-height:45px; border:1px dashed rgba(255,255,255,0.2);"></div>';
+                    break;
+                case 'MenuItem':
+                    content = '<div class="j-component" style="padding:10px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"><span>Menu Item</span></div>';
+                    break;
+                case 'Loading':
+                    content = '<div class="j-loading" style="display:inline-flex; align-items:center; justify-content:center; padding:10px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--jettra-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg></div>';
+                    break;
+                case 'Alert':
+                    content = '<div style="background:rgba(255,0,0,0.1); border-left:4px solid #ff4444; padding:15px; border-radius:4px; color:#ff4444; display:flex; align-items:center; gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Alert Message</span></div>';
+                    break;
+                case 'Notification':
+                    content = '<div style="background:rgba(0,255,255,0.1); border:1px solid var(--jettra-accent); padding:15px; border-radius:8px; color:var(--jettra-text); max-width:300px; box-shadow:0 4px 12px rgba(0,0,0,0.3);"><span>Notification Message</span></div>';
+                    break;
+                case 'Downloader':
+                    content = '<div style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(255,255,255,0.1); border-radius:4px; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download File</span></div>';
+                    break;
+                case 'PDFViewer':
+                    content = '<div style="border:1px solid #aaa; background:#eee; color:#333; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><span>PDF Document Preview</span></div>';
+                    break;
+                case 'ViewMedia':
+                    content = '<div style="background:#000; color:#fff; height:200px; display:flex; align-items:center; justify-content:center; border-radius:4px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span style="margin-left:10px">Media Player</span></div>';
+                    break;
+                case 'BarCode':
+                    content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>';
+                    break;
+                case 'Carousel':
+                    content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>';
+                    break;
+                case 'TabView':
+                {
                     const orient = p.orientation || 'TOP';
                     let mainStyle = 'display: flex; border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; overflow: hidden;';
                     let layoutStyle = 'display: flex; flex: 1;';
                     let headerAreaStyle = 'display: flex; background: rgba(0,0,0,0.3); flex-direction: column;';
                     let tabsStyle = 'display: flex;';
                     let containerStyle = 'padding: 15px; min-height: 100px; background: rgba(0,255,255,0.02); flex: 1;';
-                    
+
                     const titleHtml = p.text ? `<div class="tabview-title" style="padding: 10px 15px; font-weight: bold; font-size: 11px; color: var(--jettra-accent); background: rgba(255,255,255,0.05);">${p.text}</div>` : '';
                     let tabTitlesHtml = '<span style="padding:10px; color:#aaa; font-size:10px; opacity:0.5;">[Tabs]</span>';
 
@@ -1012,11 +1400,19 @@
                     }
                     break;
                 }
-                case 'Tab': content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>'; break;
-                case 'Tree': content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>'; break;
-                case 'TreeItem': content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>'; break;
-                case 'TrafficLight': content = '<div class="j-trafficlight" style="display:flex; flex-direction:column; gap:4px; width:24px; padding:6px; background:#111; border-radius:12px; border:2px solid #333; margin:auto;"><div style="width:12px; height:12px; border-radius:50%; background:#500;"></div><div style="width:12px; height:12px; border-radius:50%; background:#550;"></div><div style="width:12px; height:12px; border-radius:50%; background:#050;"></div></div>'; break;
-                case 'Datatable': 
+                case 'Tab':
+                    content = '<div class="canvas-container" style="border:1px dashed var(--jettra-accent); min-height:80px; padding:10px; position:relative; background:rgba(0,0,0,0.4); margin-bottom:10px;"><span style="position:absolute; top:-12px; left:10px; background:var(--jettra-accent); color:#000; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">Tab Title</span></div>';
+                    break;
+                case 'Tree':
+                    content = '<div class="canvas-container" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:4px; background:rgba(0,0,0,0.2); min-height:50px;"></div>';
+                    break;
+                case 'TreeItem':
+                    content = '<div class="canvas-container" style="padding-left:15px; border-left:1px dashed rgba(0,255,255,0.2); min-height:30px; margin-top:5px; position:relative;"><span style="position:absolute; left:-10px; top:5px; font-size:10px; color:var(--jettra-accent);">&#10148;</span><span style="display:inline-block; margin-bottom:5px; color:#fff;">Tree Node</span></div>';
+                    break;
+                case 'TrafficLight':
+                    content = '<div class="j-trafficlight" style="display:flex; flex-direction:column; gap:4px; width:24px; padding:6px; background:#111; border-radius:12px; border:2px solid #333; margin:auto;"><div style="width:12px; height:12px; border-radius:50%; background:#500;"></div><div style="width:12px; height:12px; border-radius:50%; background:#550;"></div><div style="width:12px; height:12px; border-radius:50%; background:#050;"></div></div>';
+                    break;
+                case 'Datatable':
                     const headers = p.headers || ['Col 1', 'Col 2'];
                     content = `
                         <table style="width:100%;border-collapse:collapse;border:1px solid var(--jettra-border);">
@@ -1026,10 +1422,14 @@
                             <tr>
                                 ${headers.map(() => `<td style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);">Row Data</td>`).join('')}
                             </tr>
-                        </table>`; 
+                        </table>`;
                     break;
-                case 'Panel': content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>'; break;
-                case 'Div': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px; position:relative;">Div Container</div>'; break;
+                case 'Panel':
+                    content = '<div style="border:1px solid var(--jettra-border); border-radius:4px;"><div style="padding:8px;background:rgba(0,255,255,0.1);font-weight:bold;font-size:12px;">Panel</div><div class="canvas-container" style="min-height:40px;padding:10px;"></div></div>';
+                    break;
+                case 'Div':
+                    content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.2); padding:10px; position:relative;">Div Container</div>';
+                    break;
                 case 'Modal':
                 case 'Dialog':
                     const mId = customId || ('modal_' + Date.now());
@@ -1043,26 +1443,39 @@
                     currentProps.id = mId;
                     el.setAttribute('data-props', JSON.stringify(currentProps));
                     break;
-                case 'FormGroup': content = `<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">${p.text || 'Form Group'}</label></div>`; break;
-                case 'Center': content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.1); padding:20px;"></div>'; break;
-                case 'UIComponent': 
+                case 'FormGroup':
+                    content = `<div class="canvas-container" style="border:1px dashed var(--jettra-accent); padding:10px;"><label style="display:block;margin-bottom:5px;color:var(--jettra-text);">${p.text || 'Form Group'}</label></div>`;
+                    break;
+                case 'Center':
+                    content = '<div class="canvas-container" style="min-height:50px; border:1px dashed rgba(255,255,255,0.1); padding:20px;"></div>';
+                    break;
+                case 'UIComponent':
                     const tag = p.text || 'div';
                     content = `<${tag} class="canvas-container" style="min-height:20px; border:1px dotted rgba(255,255,255,0.2); padding:10px; font-family:monospace; font-size:10px; color:#666;">&lt;${tag}&gt;</${tag}>`;
                     break;
-                default: content = `<div class="canvas-container" style="min-height:20px; border:1px solid #333; padding:5px;">${type} ${p.text || ''}</div>`;
+                default:
+                    content = `<div class="canvas-container" style="min-height:20px; border:1px solid #333; padding:5px;">${type} ${p.text || ''}</div>`;
             }
-            
+
             el.innerHTML = content + '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
-            
+
             el.ondragstart = (e) => {
                 e.stopPropagation();
                 e.dataTransfer.setData("move-id", el.id);
                 el.id = el.id || 'move_' + Date.now();
             };
-            
-            el.onclick = (e) => { e.stopPropagation(); selectElement(el); };
-            el.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); selectElement(el); showInspector(); };
-            
+
+            el.onclick = (e) => {
+                e.stopPropagation();
+                selectElement(el);
+            };
+            el.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectElement(el);
+                showInspector();
+            };
+
             canvas.appendChild(el);
             if (!isSyncing) {
                 updateCode();
@@ -1110,29 +1523,32 @@
         function saveGeneratedCode() {
             const code = document.getElementById('code-display').value;
             if (!code || code.trim() === "" || code.startsWith('//')) {
-                if (window.javaConnector) window.javaConnector.showError("No hay código para guardar.");
+                if (window.javaConnector)
+                    window.javaConnector.showError("No hay código para guardar.");
                 return;
             }
             // Extract class name more robustly
             const match = code.match(/public\s+(?:abstract\s+)?class\s+(\w+)/);
             const className = match ? match[1] : null;
-            
+
             if (!className) {
-                if (window.javaConnector) window.javaConnector.showError("No se pudo identificar el nombre de la clase en el código.");
+                if (window.javaConnector)
+                    window.javaConnector.showError("No se pudo identificar el nombre de la clase en el código.");
                 return;
             }
-            
+
             if (window.javaConnector) {
                 window.javaConnector.saveCode(className, code);
             }
         }
 
         function updateInspector() {
-            if (!selectedElement) return;
+            if (!selectedElement)
+                return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             const type = selectedElement.getAttribute('data-type');
             const propList = document.getElementById('inspector-properties');
-            
+
             let html = `<div style="font-size:11px; color:#aaa; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:5px;">Component: <b style="color:var(--jettra-accent)">${type}</b></div>`;
 
             // Model Binding
@@ -1233,11 +1649,11 @@
                     <div class="inspector-row">
                         <span class="inspector-label">Icon</span>
                         <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-top:5px; margin-bottom:10px;">
-                            ${iconPresets.map(preset => 
-                                `<div class="icon-preset" style="cursor:pointer; padding:8px; display:flex; align-items:center; justify-content:center; border:1px solid ${props.icon === preset.label ? 'var(--jettra-accent)' : 'rgba(255,255,255,0.1)'}" onclick="updateProp('icon', '${preset.label}')" title="${preset.label}">
+                            ${iconPresets.map(preset =>
+                        `<div class="icon-preset" style="cursor:pointer; padding:8px; display:flex; align-items:center; justify-content:center; border:1px solid ${props.icon === preset.label ? 'var(--jettra-accent)' : 'rgba(255,255,255,0.1)'}" onclick="updateProp('icon', '${preset.label}')" title="${preset.label}">
                                     <div style="width:18px;height:18px;">${preset.svg}</div>
                                 </div>`
-                            ).join('')}
+                ).join('')}
                         </div>
                         <input type="text" class="inspector-input" placeholder="Custom icon name" value="${props.icon || ''}" onchange="updateProp('icon', this.value)">
                     </div>
@@ -1280,7 +1696,7 @@
             html += `<div style="font-size:10px; color:#888; margin-top:20px; border-top:1px solid #333; padding-top:10px; text-transform:uppercase;">Events (Java Code)</div>`;
             const supportedEvents = ['onClick', 'onChange', 'onAction'];
             props.events = props.events || {};
-            
+
             supportedEvents.forEach(ev => {
                 const evCode = props.events[ev] || "";
                 html += `
@@ -1297,7 +1713,8 @@
         }
 
         function updateEvent(evName, code) {
-            if (!selectedElement) return;
+            if (!selectedElement)
+                return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             props.events = props.events || {};
             props.events[evName] = code;
@@ -1315,11 +1732,12 @@
         }
 
         function updateProp(key, value) {
-            if (!selectedElement) return;
+            if (!selectedElement)
+                return;
             const props = JSON.parse(selectedElement.getAttribute('data-props') || '{}');
             props[key] = value;
             selectedElement.setAttribute('data-props', JSON.stringify(props));
-            
+
             // Visual feedback update
             const type = selectedElement.getAttribute('data-type');
             if (['TabView', 'Tab', 'CreditCard', 'Panel', 'Div', 'Modal', 'Dialog', 'Datatable', 'FormGroup', 'Center', 'UIComponent'].includes(type)) {
@@ -1328,14 +1746,15 @@
                 if (type === 'Header') {
                     const level = props.level || '2';
                     const text = props.text || 'Header';
-                    selectedElement.innerHTML = `<h${level} style="margin:0; color:var(--jettra-text);">${text}</h${level}>` + 
-                        '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                    selectedElement.innerHTML = `<h${level} style="margin:0; color:var(--jettra-text);">${text}</h${level}>` +
+                            '<div class="delete-tool" onclick="this.parentElement.remove(); updateCode();"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
                 } else if (key === 'text') {
                     const inner = selectedElement.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, a');
-                    if (inner) inner.innerText = value;
+                    if (inner)
+                        inner.innerText = value;
                 }
             }
-            
+
             updateCode();
             updateInspector(); // Refresh to show changes (like icon selection)
         }
@@ -1344,14 +1763,14 @@
             document.querySelectorAll('.canvas-drop-area').forEach(c => {
                 c.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
             });
-            
+
             // Remove modal tabs/viewports
             document.querySelectorAll('.designer-tab:not(#tab-main)').forEach(t => t.remove());
             document.querySelectorAll('.canvas-viewport:not(#viewport-main)').forEach(v => v.remove());
-            designerTabs = [{ id: 'main', title: 'Main Page' }];
+            designerTabs = [{id: 'main', title: 'Main Page'}];
             activeDesignerTab = 'main';
             switchDesignerTab('main');
-            
+
             updateCode();
         }
 
@@ -1363,7 +1782,7 @@
                 document.getElementById('code-display').value = "// No components added yet";
                 return;
             }
-            
+
             let code = "package com.jettra.example.pages;\n\n";
             code += "import io.jettra.wui.complex.*;\n";
             code += "import io.jettra.wui.components.*;\n\n";
@@ -1373,32 +1792,48 @@
             }
             code += "    @Override\n";
             code += "    protected void initCenter(Center center, String username) {\n";
-            
+
             function chainProps(props, type) {
                 let c = "";
-                if (props.binding) c += `\n            .bind("${props.binding}")`;
-                if (props.btnStyle) c += `\n            .setStyle(Button.Style.${props.btnStyle})`;
-                if (props.icon) c += `\n            .setIcon("${props.icon}")`;
-                if (props.columns) c += `\n            .setColumns(${props.columns})`;
-                
+                if (props.binding)
+                    c += `\n            .bind("${props.binding}")`;
+                if (props.btnStyle)
+                    c += `\n            .setStyle(Button.Style.${props.btnStyle})`;
+                if (props.icon)
+                    c += `\n            .setIcon("${props.icon}")`;
+                if (props.columns)
+                    c += `\n            .setColumns(${props.columns})`;
+
                 // New Fluent API properties
-                if (props.value) c += `\n            .setValue("${props.value}")`;
-                if (props.readonly === 'true') c += `\n            .setReadonly(true)`;
-                if (props.display) c += `\n            .setDisplay("${props.display}")`;
-                
+                if (props.value)
+                    c += `\n            .setValue("${props.value}")`;
+                if (props.readonly === 'true')
+                    c += `\n            .setReadonly(true)`;
+                if (props.display)
+                    c += `\n            .setDisplay("${props.display}")`;
+
                 if (type === 'Button') {
-                    if (props.backgroundColor) c += `\n            .setBackgroundColor("${props.backgroundColor}")`;
-                    if (props.onclick) c += `\n            .setOnclick("${props.onclick}")`;
-                    if (props.type) c += `\n            .setType("${props.type}")`;
+                    if (props.backgroundColor)
+                        c += `\n            .setBackgroundColor("${props.backgroundColor}")`;
+                    if (props.onclick)
+                        c += `\n            .setOnclick("${props.onclick}")`;
+                    if (props.type)
+                        c += `\n            .setType("${props.type}")`;
                 }
 
                 if (type === 'Modal' || type === 'Dialog') {
-                    if (props.padding) c += `\n            .setPadding("${props.padding}")`;
-                    if (props.backgroundColor) c += `\n            .setBackgroundColor("${props.backgroundColor}")`;
-                    if (props.border) c += `\n            .setBorder("${props.border}")`;
-                    if (props.width) c += `\n            .setWidth("${props.width}")`;
-                    if (props.maxWidth) c += `\n            .setMaxWidth("${props.maxWidth}")`;
-                    if (props.borderRadius) c += `\n            .setBorderRadius("${props.borderRadius}")`;
+                    if (props.padding)
+                        c += `\n            .setPadding("${props.padding}")`;
+                    if (props.backgroundColor)
+                        c += `\n            .setBackgroundColor("${props.backgroundColor}")`;
+                    if (props.border)
+                        c += `\n            .setBorder("${props.border}")`;
+                    if (props.width)
+                        c += `\n            .setWidth("${props.width}")`;
+                    if (props.maxWidth)
+                        c += `\n            .setMaxWidth("${props.maxWidth}")`;
+                    if (props.borderRadius)
+                        c += `\n            .setBorderRadius("${props.borderRadius}")`;
                 }
 
                 // Events
@@ -1419,25 +1854,30 @@
                     const type = it.getAttribute('data-type');
                     const props = JSON.parse(it.getAttribute('data-props') || '{}');
                     const vName = props.id || (type.toLowerCase() + '_' + idx);
-                    
+
                     const simpleTypes = ['Divide', 'Separator', 'Header', 'Paragraph', 'Span', 'Label', 'Clock', 'Loading', 'Alert', 'Notification', 'TrafficLight'];
-                    
+
                     if (['Panel', 'Div', 'FormGroup', 'Card', 'Grid', 'Board', 'TabView'].includes(type)) {
                         out += `        ${type} ${vName} = new ${type}()${chainProps(props, type)};\n`;
-                        if (type === 'Card' && props.title) out += `        ${vName}.setTitle("${props.title}");\n`;
+                        if (type === 'Card' && props.title)
+                            out += `        ${vName}.setTitle("${props.title}");\n`;
                         if (type === 'TabView' && props.orientation) {
                             out += `        ${vName}.setOrientation(TabView.Orientation.${props.orientation});\n`;
                         }
-                        
+
                         const kids = it.querySelectorAll(':scope > .canvas-container > .canvas-item, :scope > div > .canvas-container > .canvas-item');
-                        if (kids.length > 0) out += walk(kids, vName);
+                        if (kids.length > 0)
+                            out += walk(kids, vName);
                         out += `        ${parentName}.add(${vName});\n`;
                     } else if (simpleTypes.includes(type)) {
                         let init = "";
-                        if (type === 'Header') init = `new Header(${props.level || 2}, "${props.text}")`;
-                        else if (type === 'Divide' || type === 'Separator') init = `new ${type}()`;
-                        else init = `new ${type}("${props.text}")`;
-                        
+                        if (type === 'Header')
+                            init = `new Header(${props.level || 2}, "${props.text}")`;
+                        else if (type === 'Divide' || type === 'Separator')
+                            init = `new ${type}()`;
+                        else
+                            init = `new ${type}("${props.text}")`;
+
                         out += `        ${parentName}.add(${init}${chainProps(props, type)});\n`;
                     } else if (type === 'SelectOne' || type === 'SelectMany') {
                         out += `        ${parentName}.add(new ${type}("${vName}")${chainProps(props, type)}`;
@@ -1457,14 +1897,16 @@
                 });
                 return out;
             }
-            
+
             code += walk(items, "center");
 
             // Walk Modal tabs
             designerTabs.forEach(tab => {
-                if (tab.id === 'main') return;
+                if (tab.id === 'main')
+                    return;
                 const mCanvas = document.getElementById('canvas-' + tab.id);
-                if (!mCanvas) return;
+                if (!mCanvas)
+                    return;
                 const mItems = mCanvas.querySelectorAll(':scope > .canvas-item');
                 if (mItems.length > 0) {
                     const varName = tab.id.replace('modal_', 'm_');
@@ -1476,7 +1918,7 @@
             });
 
             code += "    }\n}\n";
-            
+
             document.getElementById('code-display').value = code;
         }
 
@@ -1497,7 +1939,7 @@
         // Called from Java
         function loadWorkspaceFiles(filesJson) {
             let files = JSON.parse(filesJson);
-            
+
             // Sort files alphabetically by filename
             files.sort((a, b) => {
                 const nameA = a.path.split('/').pop().toUpperCase();
@@ -1507,16 +1949,19 @@
 
             fileCache = {};
             models = [];
-            const groups = { model: [], pages: [], properties: [] };
-            
+            const groups = {model: [], pages: [], properties: []};
+
             files.forEach(f => {
                 fileCache[f.path] = f.content;
-                if (f.type === 'model') models.push({ name: f.path.split('/').pop().replace('.java', ''), path: f.path });
-                if (groups[f.type]) groups[f.type].push(f);
+                if (f.type === 'model')
+                    models.push({name: f.path.split('/').pop().replace('.java', ''), path: f.path});
+                if (groups[f.type])
+                    groups[f.type].push(f);
             });
-            
+
             const renderGroup = (title, items, cls) => {
-                if (items.length === 0) return '';
+                if (items.length === 0)
+                    return '';
                 return `
                     <div class="tree-subtree">
                         <div class="subtree-title" onclick="const c = this.nextElementSibling; c.style.display = c.style.display === 'none' ? 'block' : 'none'; this.querySelector('svg').style.transform = c.style.display === 'none' ? 'rotate(-90deg)' : 'rotate(0deg)';">
@@ -1525,15 +1970,15 @@
                         </div>
                         <div class="subtree-content">
                             ${items.map(f => {
-                                const name = f.path.split('/').pop();
-                                const escapedPath = f.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                                return `
+                    const name = f.path.split('/').pop();
+                    const escapedPath = f.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    return `
                                     <div class="explorer-item ${cls}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', 'file:${escapedPath}')" ondblclick="loadFileContentToCanvas('${escapedPath}')">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; opacity:0.6;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
                                         ${name}
                                     </div>
                                 `;
-                            }).join('')}
+                }).join('')}
                         </div>
                     </div>
                 `;
@@ -1543,15 +1988,15 @@
             treeHtml.push(renderGroup('Model', groups.model, 'file-model'));
             treeHtml.push(renderGroup('Pages', groups.pages, 'file-page'));
             treeHtml.push(renderGroup('Resources', groups.properties, ''));
-            
+
             document.getElementById('file-tree').innerHTML = treeHtml.join('');
             document.getElementById('project-explorer').style.display = 'block';
-            
+
             // Update Model Select
             const select = document.getElementById('model-select');
-            select.innerHTML = '<option value="">None</option>' + 
-                models.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
-            
+            select.innerHTML = '<option value="">None</option>' +
+                    models.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+
             if (window.javaConnector) {
                 window.javaConnector.showInfo(`Loaded ${files.length} files.`);
             }
@@ -1565,7 +2010,7 @@
                 let match;
                 modelFields = [];
                 while ((match = fieldRegex.exec(content)) !== null) {
-                    modelFields.push({ type: match[1], name: match[2] });
+                    modelFields.push({type: match[1], name: match[2]});
                 }
                 if (window.javaConnector) {
                     window.javaConnector.showInfo(`Selected model ${name} with ${modelFields.length} fields.`);
@@ -1578,17 +2023,18 @@
 
         function generateCRUD() {
             if (!currentModel) {
-                if (window.javaConnector) window.javaConnector.showError('Select a Model first.');
+                if (window.javaConnector)
+                    window.javaConnector.showError('Select a Model first.');
                 return;
             }
-            
+
             const baseName = currentModel.name.replace('Model', '');
             let code = `package com.jettra.example.pages;\n\nimport io.jettra.wui.complex.*;\nimport io.jettra.wui.components.*;\n\n`;
             code += `public class ${baseName}Page extends DashboardBasePage {\n\n`;
             code += `    private ${currentModel.name} model = new ${currentModel.name}();\n\n`;
             code += `    @Override\n    protected void initCenter(Center center, String username) {\n`;
             code += `        center.add(new Header(2, "Mantenimiento de ${baseName}"));\n\n`;
-            
+
             // Form
             code += `        Form form = new Form("${baseName.toLowerCase()}Form", "/${baseName.toLowerCase()}");\n`;
             modelFields.forEach(f => {
@@ -1605,23 +2051,24 @@
             });
             code += `        form.add(new Button("Guardar").addClass("j-btn").addClass("j-btn-primary"));\n`;
             code += `        center.add(form);\n\n`;
-            
+
             // Datatable
             code += `        Datatable table = new Datatable().addHeaderRow(\n            `;
             code += modelFields.map(f => `"${f.name}"`).join(', ') + `\n        );\n`;
             code += `        center.add(table);\n`;
-            
+
             code += `    }\n}\n`;
-            
+
             document.getElementById('code-display').value = code;
             syncCodeToCanvas();
-            if (window.javaConnector) window.javaConnector.showInfo(`CRUD Generated for ${baseName}`);
+            if (window.javaConnector)
+                window.javaConnector.showInfo(`CRUD Generated for ${baseName}`);
         }
 
         function loadFileContentToCanvas(path) {
             console.log("Loading path:", path);
             let content = fileCache[path];
-            
+
             if (!content) {
                 // Fallback: try finding by filename
                 const filename = path.split(/[/\\]/).pop();
@@ -1639,45 +2086,47 @@
                 if (classMatch) {
                     currentClassName = classMatch[1];
                 }
-                
+
                 document.getElementById('code-display').value = content;
                 syncCodeToCanvas();
-                if (window.javaConnector) window.javaConnector.showInfo("Abierto: " + currentClassName);
+                if (window.javaConnector)
+                    window.javaConnector.showInfo("Abierto: " + currentClassName);
             } else {
-                if (window.javaConnector) window.javaConnector.showError("Error: No se encontró el contenido del archivo.");
+                if (window.javaConnector)
+                    window.javaConnector.showError("Error: No se encontró el contenido del archivo.");
             }
         }
 
         function syncCodeToCanvas() {
             const code = document.getElementById('code-display').value;
             const mainCanvas = document.getElementById('canvas');
-            
+
             try {
                 isSyncing = true;
-                
+
                 // Rebuild Tabs
                 const tabsContainer = document.getElementById('designer-tabs');
                 const viewportsContainer = document.getElementById('viewports-container');
-                
+
                 // Remove modal tabs/viewports
                 document.querySelectorAll('.designer-tab:not(#tab-main)').forEach(t => t.remove());
                 document.querySelectorAll('.canvas-viewport:not(#viewport-main)').forEach(v => v.remove());
-                designerTabs = [{ id: 'main', title: 'Main Page' }];
+                designerTabs = [{id: 'main', title: 'Main Page'}];
                 activeDesignerTab = 'main';
                 switchDesignerTab('main');
 
                 mainCanvas.innerHTML = '';
-                
+
                 if (!code || code.trim() === "" || code.startsWith('//')) {
                     mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">Drag components here</div>';
                     return;
                 }
 
-                let varProps = { 'center': { id: 'canvas', text: 'Center' } };
-                let varTypes = { 'center': 'Center' };
-                let varToElementId = { 'center': 'canvas' }; 
+                let varProps = {'center': {id: 'canvas', text: 'Center'}};
+                let varTypes = {'center': 'Center'};
+                let varToElementId = {'center': 'canvas'};
                 let modalVars = {};
-                
+
                 const rawLines = code.split('\n');
                 let lines = [];
                 rawLines.forEach(line => {
@@ -1702,266 +2151,282 @@
                 lines.forEach((line, index) => {
                     try {
                         const trimmedLine = line.trim();
-                    if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('import ') || trimmedLine.startsWith('package ')) return;
+                        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('import ') || trimmedLine.startsWith('package '))
+                            return;
 
-                    // 1. Detect Modal/Dialog instantiation (handle packages)
-                    let modalMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?(Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?(?:Modal|Dialog)|(?:\(\s*(?:[a-zA-Z0-9_.]+\.)?(?:Modal|Dialog)\s*\))?[\w.]+\.findComponent)\s*\("([^"]+)"\)/);
-                    if (!modalMatch) {
-                        modalMatch = trimmedLine.match(/(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?(Modal|Dialog)\s*\("([^"]+)"\)/);
-                    }
+                        // 1. Detect Modal/Dialog instantiation (handle packages)
+                        let modalMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?(Modal|Dialog)\s+(\w+)\s*=\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?(?:Modal|Dialog)|(?:\(\s*(?:[a-zA-Z0-9_.]+\.)?(?:Modal|Dialog)\s*\))?[\w.]+\.findComponent)\s*\("([^"]+)"\)/);
+                        if (!modalMatch) {
+                            modalMatch = trimmedLine.match(/(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?(Modal|Dialog)\s*\("([^"]+)"\)/);
+                        }
 
-                    if (modalMatch) {
-                        const isNewMatch = modalMatch.length === 4 && isNaN(modalMatch[1]);
-                        const type = isNewMatch ? modalMatch[1] : modalMatch[2];
-                        const varName = isNewMatch ? modalMatch[2] : modalMatch[1];
-                        const modalId = modalMatch[3];
-                        
-                        console.log(`Found Modal/Dialog: ${varName} -> ${modalId}`);
-                        modalVars[varName] = 'canvas-' + modalId;
-                        varTypes[varName] = type;
-                        varToElementId[varName] = modalId;
-                        lastVar = varName;
-                        
-                        addComponent(type, mainCanvas, modalId);
-                        found = true;
-                    }
+                        if (modalMatch) {
+                            const isNewMatch = modalMatch.length === 4 && isNaN(modalMatch[1]);
+                            const type = isNewMatch ? modalMatch[1] : modalMatch[2];
+                            const varName = isNewMatch ? modalMatch[2] : modalMatch[1];
+                            const modalId = modalMatch[3];
 
-                    // 2. Detect variable declarations: Type var = new Type(...)
-                    let declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1\s*\(([^)]*)\)/);
-                    if (!declMatch) {
-                         declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1(?:\s*\(([^)]*)\))?\s*\{?/);
-                    }
-                    
-                    if (declMatch) {
-                        const type = declMatch[1];
-                        const varName = declMatch[2];
-                        const args = declMatch[3] || "";
-                        varTypes[varName] = type;
-                        
-                        console.log(`Tracked variable: ${varName} as ${type}`);
-                        
-                        let props = { id: (varName || type.toLowerCase() + '_' + index), text: type };
-                        if (args) {
-                             let argParts = args.split(',').map(a => a.trim());
-                             if (type === 'Header') {
-                                 props.level = argParts[0] || '2';
-                                 props.text = (argParts[1] || 'Header').replace(/"/g, '');
-                             } else {
-                                 props.text = argParts[0].replace(/"/g, '');
-                             }
-                        }
-                        varProps[varName] = props;
-                        lastVar = varName;
-                        
-                        // Create as orphan immediately if it's a container to allow adding kids before it's on canvas
-                        const containerTypes = ['Div', 'Panel', 'Card', 'Grid', 'Board', 'FormGroup', 'Center', 'UIComponent', 'Modal', 'Dialog'];
-                        if (containerTypes.includes(type)) {
-                             addComponent(type, orphansContainer, props.id, props);
-                             varToElementId[varName] = props.id;
-                        }
-                    }
+                            console.log(`Found Modal/Dialog: ${varName} -> ${modalId}`);
+                            modalVars[varName] = 'canvas-' + modalId;
+                            varTypes[varName] = type;
+                            varToElementId[varName] = modalId;
+                            lastVar = varName;
 
-                    // 3. Detect property settings: var.setStyle(...), var.setProperty(...)
-                    let vNameForStyle = null;
-                    if (trimmedLine.startsWith('.')) {
-                        vNameForStyle = lastVar;
-                    } else if (trimmedLine.includes('.setStyle') || trimmedLine.includes('.setProperty')) {
-                        vNameForStyle = trimmedLine.split('.')[0].trim();
-                        // Extract actual variable name if it's a declaration (e.g. "Div container = container")
-                        if (vNameForStyle.includes(' ')) {
-                             const parts = vNameForStyle.split(/\s+/);
-                             vNameForStyle = parts[parts.length - 1];
-                        }
-                    }
-
-                    if (vNameForStyle) {
-                        if (vNameForStyle.startsWith('io.jettra.wui.complex.')) vNameForStyle = vNameForStyle.substring(22);
-                        if (vNameForStyle.startsWith('io.jettra.wui.components.')) vNameForStyle = vNameForStyle.substring(25);
-                        if (vNameForStyle.startsWith('this.')) vNameForStyle = vNameForStyle.substring(5);
-                        
-                        // Extract all setStyle calls
-                        const styleRegex = /\.setStyle\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
-                        let sMatch;
-                        while ((sMatch = styleRegex.exec(trimmedLine)) !== null) {
-                            let elId = varToElementId[vNameForStyle];
-                            if (elId) {
-                                let el = document.getElementById(elId);
-                                if (el) {
-                                    let target = el.querySelector('.j-component, .j-btn, h1, h2, h3, h4, h5, h6, p, span, label, .canvas-container');
-                                    if (target) target.style[sMatch[1]] = sMatch[2];
-                                }
-                            }
-                        }
-                        
-                        // Extract all setProperty calls
-                        const propRegex = /\.setProperty\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
-                        let pMatch;
-                        while ((pMatch = propRegex.exec(trimmedLine)) !== null) {
-                            let elId = varToElementId[vNameForStyle];
-                            if (elId) {
-                                let el = document.getElementById(elId);
-                                if (el) {
-                                    if (pMatch[1] === 'onclick') {
-                                        let target = el.querySelector('.j-btn, .j-component, a, button');
-                                        if (target) {
-                                            target.title = "Action: " + pMatch[2];
-                                            target.style.border = "1px dashed var(--jettra-accent)";
-                                        }
-                                    } else if (pMatch[1] === 'text' || pMatch[1] === 'value') {
-                                        let target = el.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, .j-btn, .canvas-container');
-                                        if (target) target.innerText = pMatch[2];
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Extract .setText calls
-                        const textRegex = /\.setText\s*\(\s*"([^"]+)"\s*\)/g;
-                        let tMatch;
-                        while ((tMatch = textRegex.exec(trimmedLine)) !== null) {
-                            let elId = varToElementId[vNameForStyle];
-                            if (elId) {
-                                let el = document.getElementById(elId);
-                                if (el) {
-                                    let target = el.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, .j-btn, .canvas-container');
-                                    if (target) target.innerText = tMatch[1];
-                                }
-                            }
-                        }
-                        lastVar = vNameForStyle;
-                    }
-                    
-                    // 4. Detect components added
-                    // Support: parent.add(new Comp(...)) or parent.add(var)
-                    let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{?|(\w+))/);
-                    if (addMatch) {
-                        let parentVar = addMatch[1];
-                        if (parentVar.startsWith('this.')) parentVar = parentVar.substring(5);
-                        
-                        let compType = addMatch[2];
-                        let args = addMatch[3];
-                        const childVarName = addMatch[4];
-                        
-                        if (!compType && childVarName) {
-                            compType = varTypes[childVarName];
-                        }
-                        
-                        if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date'].includes(compType)) {
-                            console.log(`Adding/Moving component ${compType} to ${parentVar} (var: ${childVarName})`);
+                            addComponent(type, mainCanvas, modalId);
                             found = true;
-                            let targetCanvas = mainCanvas;
-                            
-                            if (modalVars[parentVar]) {
-                                let target = document.getElementById(modalVars[parentVar]);
-                                if (target) targetCanvas = target;
-                            } else if (parentVar === 'center') {
-                                targetCanvas = mainCanvas;
-                            } else if (varToElementId[parentVar]) {
-                                let parentEl = document.getElementById(varToElementId[parentVar]);
-                                if (parentEl) {
-                                    targetCanvas = parentEl.querySelector('.canvas-container') || parentEl;
+                        }
+
+                        // 2. Detect variable declarations: Type var = new Type(...)
+                        let declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1\s*\(([^)]*)\)/);
+                        if (!declMatch) {
+                            declMatch = trimmedLine.match(/(?:[a-zA-Z0-9_.]+\.)?([A-Z]\w+)\s+(\w+)\s*=\s*new\s+(?:[a-zA-Z0-9_.]+\.)?\1(?:\s*\(([^)]*)\))?\s*\{?/);
+                        }
+
+                        if (declMatch) {
+                            const type = declMatch[1];
+                            const varName = declMatch[2];
+                            const args = declMatch[3] || "";
+                            varTypes[varName] = type;
+
+                            console.log(`Tracked variable: ${varName} as ${type}`);
+
+                            let props = {id: (varName || type.toLowerCase() + '_' + index), text: type};
+                            if (args) {
+                                let argParts = args.split(',').map(a => a.trim());
+                                if (type === 'Header') {
+                                    props.level = argParts[0] || '2';
+                                    props.text = (argParts[1] || 'Header').replace(/"/g, '');
+                                } else {
+                                    props.text = argParts[0].replace(/"/g, '');
                                 }
                             }
-                            
-                            // If the parent itself is inside a modal tab, children should follow
-                            let tempParent = targetCanvas;
-                            while (tempParent && tempParent !== mainCanvas && tempParent !== document.body) {
-                                if (tempParent.classList.contains('canvas-drop-area') && tempParent.id.startsWith('canvas-')) {
-                                    // Already in a modal canvas
-                                    break;
-                                }
-                                tempParent = tempParent.parentElement;
+                            varProps[varName] = props;
+                            lastVar = varName;
+
+                            // Create as orphan immediately if it's a container to allow adding kids before it's on canvas
+                            const containerTypes = ['Div', 'Panel', 'Card', 'Grid', 'Board', 'FormGroup', 'Center', 'UIComponent', 'Modal', 'Dialog'];
+                            if (containerTypes.includes(type)) {
+                                addComponent(type, orphansContainer, props.id, props);
+                                varToElementId[varName] = props.id;
                             }
-                            
-                            if (childVarName && varToElementId[childVarName]) {
-                                // Move existing orphan element to new parent
-                                let childEl = document.getElementById(varToElementId[childVarName]);
-                                if (childEl) {
-                                    targetCanvas.appendChild(childEl);
-                                    const placeholder = targetCanvas.querySelector('.canvas-placeholder');
-                                    if (placeholder) placeholder.style.display = 'none';
-                                }
-                            } else {
-                                // Create new element
-                                let props = varProps[childVarName] || { id: (childVarName || compType.toLowerCase() + '_' + index), text: compType };
-                                if (args) {
-                                    let argParts = args.split(',').map(a => a.trim());
-                                    if (compType === 'Header') {
-                                        props.level = argParts[0] || '2';
-                                        props.text = (argParts[1] || 'Header').replace(/"/g, '');
-                                    } else if (compType === 'Datatable') {
-                                        // Skip table header args for now
-                                    } else {
-                                        props.text = argParts[0].replace(/"/g, '');
+                        }
+
+                        // 3. Detect property settings: var.setStyle(...), var.setProperty(...)
+                        let vNameForStyle = null;
+                        if (trimmedLine.startsWith('.')) {
+                            vNameForStyle = lastVar;
+                        } else if (trimmedLine.includes('.setStyle') || trimmedLine.includes('.setProperty')) {
+                            vNameForStyle = trimmedLine.split('.')[0].trim();
+                            // Extract actual variable name if it's a declaration (e.g. "Div container = container")
+                            if (vNameForStyle.includes(' ')) {
+                                const parts = vNameForStyle.split(/\s+/);
+                                vNameForStyle = parts[parts.length - 1];
+                            }
+                        }
+
+                        if (vNameForStyle) {
+                            if (vNameForStyle.startsWith('io.jettra.wui.complex.'))
+                                vNameForStyle = vNameForStyle.substring(22);
+                            if (vNameForStyle.startsWith('io.jettra.wui.components.'))
+                                vNameForStyle = vNameForStyle.substring(25);
+                            if (vNameForStyle.startsWith('this.'))
+                                vNameForStyle = vNameForStyle.substring(5);
+
+                            // Extract all setStyle calls
+                            const styleRegex = /\.setStyle\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
+                            let sMatch;
+                            while ((sMatch = styleRegex.exec(trimmedLine)) !== null) {
+                                let elId = varToElementId[vNameForStyle];
+                                if (elId) {
+                                    let el = document.getElementById(elId);
+                                    if (el) {
+                                        let target = el.querySelector('.j-component, .j-btn, h1, h2, h3, h4, h5, h6, p, span, label, .canvas-container');
+                                        if (target)
+                                            target.style[sMatch[1]] = sMatch[2];
                                     }
                                 }
-                                addComponent(compType, targetCanvas, props.id, props);
-                                if (childVarName) varToElementId[childVarName] = props.id;
                             }
-                            lastVar = parentVar;
+
+                            // Extract all setProperty calls
+                            const propRegex = /\.setProperty\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g;
+                            let pMatch;
+                            while ((pMatch = propRegex.exec(trimmedLine)) !== null) {
+                                let elId = varToElementId[vNameForStyle];
+                                if (elId) {
+                                    let el = document.getElementById(elId);
+                                    if (el) {
+                                        if (pMatch[1] === 'onclick') {
+                                            let target = el.querySelector('.j-btn, .j-component, a, button');
+                                            if (target) {
+                                                target.title = "Action: " + pMatch[2];
+                                                target.style.border = "1px dashed var(--jettra-accent)";
+                                            }
+                                        } else if (pMatch[1] === 'text' || pMatch[1] === 'value') {
+                                            let target = el.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, .j-btn, .canvas-container');
+                                            if (target)
+                                                target.innerText = pMatch[2];
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Extract .setText calls
+                            const textRegex = /\.setText\s*\(\s*"([^"]+)"\s*\)/g;
+                            let tMatch;
+                            while ((tMatch = textRegex.exec(trimmedLine)) !== null) {
+                                let elId = varToElementId[vNameForStyle];
+                                if (elId) {
+                                    let el = document.getElementById(elId);
+                                    if (el) {
+                                        let target = el.querySelector('h1, h2, h3, h4, h5, h6, p, span, label, button, .j-btn, .canvas-container');
+                                        if (target)
+                                            target.innerText = tMatch[1];
+                                    }
+                                }
+                            }
+                            lastVar = vNameForStyle;
                         }
-                    }
 
-                    // 5. Detect addHeaderRow for Datatable
-                    const hRowIdx = trimmedLine.indexOf('.addHeaderRow(');
-                    if (hRowIdx !== -1) {
-                         let vName = null;
-                         const vDeclMatch = trimmedLine.substring(0, hRowIdx).match(/(\w+)\s*=\s*new\s+/);
-                         if (vDeclMatch) {
-                             vName = vDeclMatch[1];
-                         } else {
-                             const vSimpleMatch = trimmedLine.substring(0, hRowIdx).match(/(\w+)\s*$/);
-                             if (vSimpleMatch) vName = vSimpleMatch[1];
-                         }
-                         if (!vName || !varToElementId[vName]) vName = lastVar;
+                        // 4. Detect components added
+                        // Support: parent.add(new Comp(...)) or parent.add(var)
+                        let addMatch = trimmedLine.match(/([\w.]+)\.add\s*\(\s*(?:new\s+(?:[a-zA-Z0-9_.]+\.)?([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{?|(\w+))/);
+                        if (addMatch) {
+                            let parentVar = addMatch[1];
+                            if (parentVar.startsWith('this.'))
+                                parentVar = parentVar.substring(5);
 
-                         const elId = varToElementId[vName];
-                         if (elId) {
-                             const el = document.getElementById(elId);
-                             if (el) {
-                                 const table = el.querySelector('table');
-                                 if (table) {
-                                     // Extract balanced args
-                                     const argsStart = hRowIdx + 14;
-                                     let depth = 1;
-                                     let i = argsStart;
-                                     while (i < trimmedLine.length && depth > 0) {
-                                         if (trimmedLine[i] === '(') depth++;
-                                         if (trimmedLine[i] === ')') depth--;
-                                         i++;
-                                     }
-                                     const argsRaw = trimmedLine.substring(argsStart, i - 1);
-                                     const args = parseBalancedArgs(argsRaw).map(a => {
-                                         const mProp = a.match(/msg\.getProperty\s*\(\s*(?:"[^"]+"|'[^']+')\s*,\s*(?:"([^"]+)"|'([^']+)')\s*\)/);
-                                         if (mProp) return mProp[1] || mProp[2];
-                                         return a.replace(/["']/g, '').trim();
-                                     });
-                                     
-                                     const props = JSON.parse(el.getAttribute('data-props') || '{}');
-                                     props.headers = args;
-                                     el.setAttribute('data-props', JSON.stringify(props));
-                                     const header = table.querySelector('tr');
-                                     if (header) {
-                                         header.innerHTML = args.map(a => `<th style="padding:8px;text-align:left;">${a}</th>`).join('');
-                                     }
-                                 }
-                             }
-                         }
-                    }
+                            let compType = addMatch[2];
+                            let args = addMatch[3];
+                            const childVarName = addMatch[4];
+
+                            if (!compType && childVarName) {
+                                compType = varTypes[childVarName];
+                            }
+
+                            if (compType && !['String', 'Integer', 'Boolean', 'ArrayList', 'List', 'Date'].includes(compType)) {
+                                console.log(`Adding/Moving component ${compType} to ${parentVar} (var: ${childVarName})`);
+                                found = true;
+                                let targetCanvas = mainCanvas;
+
+                                if (modalVars[parentVar]) {
+                                    let target = document.getElementById(modalVars[parentVar]);
+                                    if (target)
+                                        targetCanvas = target;
+                                } else if (parentVar === 'center') {
+                                    targetCanvas = mainCanvas;
+                                } else if (varToElementId[parentVar]) {
+                                    let parentEl = document.getElementById(varToElementId[parentVar]);
+                                    if (parentEl) {
+                                        targetCanvas = parentEl.querySelector('.canvas-container') || parentEl;
+                                    }
+                                }
+
+                                // If the parent itself is inside a modal tab, children should follow
+                                let tempParent = targetCanvas;
+                                while (tempParent && tempParent !== mainCanvas && tempParent !== document.body) {
+                                    if (tempParent.classList.contains('canvas-drop-area') && tempParent.id.startsWith('canvas-')) {
+                                        // Already in a modal canvas
+                                        break;
+                                    }
+                                    tempParent = tempParent.parentElement;
+                                }
+
+                                if (childVarName && varToElementId[childVarName]) {
+                                    // Move existing orphan element to new parent
+                                    let childEl = document.getElementById(varToElementId[childVarName]);
+                                    if (childEl) {
+                                        targetCanvas.appendChild(childEl);
+                                        const placeholder = targetCanvas.querySelector('.canvas-placeholder');
+                                        if (placeholder)
+                                            placeholder.style.display = 'none';
+                                    }
+                                } else {
+                                    // Create new element
+                                    let props = varProps[childVarName] || {id: (childVarName || compType.toLowerCase() + '_' + index), text: compType};
+                                    if (args) {
+                                        let argParts = args.split(',').map(a => a.trim());
+                                        if (compType === 'Header') {
+                                            props.level = argParts[0] || '2';
+                                            props.text = (argParts[1] || 'Header').replace(/"/g, '');
+                                        } else if (compType === 'Datatable') {
+                                            // Skip table header args for now
+                                        } else {
+                                            props.text = argParts[0].replace(/"/g, '');
+                                        }
+                                    }
+                                    addComponent(compType, targetCanvas, props.id, props);
+                                    if (childVarName)
+                                        varToElementId[childVarName] = props.id;
+                                }
+                                lastVar = parentVar;
+                            }
+                        }
+
+                        // 5. Detect addHeaderRow for Datatable
+                        const hRowIdx = trimmedLine.indexOf('.addHeaderRow(');
+                        if (hRowIdx !== -1) {
+                            let vName = null;
+                            const vDeclMatch = trimmedLine.substring(0, hRowIdx).match(/(\w+)\s*=\s*new\s+/);
+                            if (vDeclMatch) {
+                                vName = vDeclMatch[1];
+                            } else {
+                                const vSimpleMatch = trimmedLine.substring(0, hRowIdx).match(/(\w+)\s*$/);
+                                if (vSimpleMatch)
+                                    vName = vSimpleMatch[1];
+                            }
+                            if (!vName || !varToElementId[vName])
+                                vName = lastVar;
+
+                            const elId = varToElementId[vName];
+                            if (elId) {
+                                const el = document.getElementById(elId);
+                                if (el) {
+                                    const table = el.querySelector('table');
+                                    if (table) {
+                                        // Extract balanced args
+                                        const argsStart = hRowIdx + 14;
+                                        let depth = 1;
+                                        let i = argsStart;
+                                        while (i < trimmedLine.length && depth > 0) {
+                                            if (trimmedLine[i] === '(')
+                                                depth++;
+                                            if (trimmedLine[i] === ')')
+                                                depth--;
+                                            i++;
+                                        }
+                                        const argsRaw = trimmedLine.substring(argsStart, i - 1);
+                                        const args = parseBalancedArgs(argsRaw).map(a => {
+                                            const mProp = a.match(/msg\.getProperty\s*\(\s*(?:"[^"]+"|'[^']+')\s*,\s*(?:"([^"]+)"|'([^']+)')\s*\)/);
+                                            if (mProp)
+                                                return mProp[1] || mProp[2];
+                                            return a.replace(/["']/g, '').trim();
+                                        });
+
+                                        const props = JSON.parse(el.getAttribute('data-props') || '{}');
+                                        props.headers = args;
+                                        el.setAttribute('data-props', JSON.stringify(props));
+                                        const header = table.querySelector('tr');
+                                        if (header) {
+                                            header.innerHTML = args.map(a => `<th style="padding:8px;text-align:left;">${a}</th>`).join('');
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } catch (lineErr) {
                         console.warn(`Error parsing line ${index + 1}: ${lineErr.message}`);
                     }
                 });
-                
+
                 // Cleanup orphans and remove from DOM
                 if (orphansContainer.parentNode) {
                     orphansContainer.parentNode.removeChild(orphansContainer);
                 }
-                
+
                 if (!found) {
                     mainCanvas.innerHTML = '<div class="canvas-placeholder" style="color:#8b949e; text-align:center; margin-top:100px;">No se detectaron componentes en el código Java o estructura no soportada.</div>';
                 }
-                
+
                 // Only switch to main if we're not already on a valid tab that was just recreated
                 if (activeDesignerTab === 'main' || !document.getElementById('tab-' + activeDesignerTab)) {
                     switchDesignerTab('main');
@@ -1970,7 +2435,8 @@
                 }
             } catch (err) {
                 console.error("Sync Error:", err);
-                if (window.javaConnector) window.javaConnector.showError("Error al sincronizar: " + err.message);
+                if (window.javaConnector)
+                    window.javaConnector.showError("Error al sincronizar: " + err.message);
             } finally {
                 isSyncing = false;
             }
