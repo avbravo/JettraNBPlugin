@@ -12,6 +12,11 @@
                 --jettra-text: #e6edf3;
                 --jettra-accent-dim: rgba(0, 255, 255, 0.1);
             }
+            @keyframes scan-line-anim {
+                0% { top: 10px; }
+                50% { top: 170px; }
+                100% { top: 10px; }
+            }
             body {
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 background: var(--jettra-bg);
@@ -940,6 +945,9 @@
                 case 'BarCode':
                     content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>';
                     break;
+                case 'QRReader':
+                    content = '<div style="width:300px; display:flex; flex-direction:column; align-items:center; gap:10px; padding:15px; border-radius:12px; background:rgba(30,41,59,0.9); border:1px solid rgba(0,255,255,0.4); box-shadow:0 4px 20px rgba(0,0,0,0.5);"><div style="width:100%; display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#0ff; font-weight:bold;"><span>QR SCANNER</span><select disabled style="background:#0f172a; color:#fff; border:1px solid rgba(0,255,255,0.2); font-size:8px; padding:2px; border-radius:4px;"><option>Mock Camera</option></select></div><div style="width:100%; height:180px; position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,255,255,0.3); background:#000; display:flex; align-items:center; justify-content:center;"><div style="font-size:24px; color:rgba(255,255,255,0.4);">📷</div><div style="position:absolute; left:0; right:0; height:2px; background:#ff0055; box-shadow:0 0 8px 1px #ff0055; animation:scan-line-anim 3s infinite linear;"></div></div><button disabled style="width:100%; padding:6px; background:#0284c7; color:#fff; border:none; border-radius:6px; font-weight:bold; font-size:11px;">Start Scanning</button></div>';
+                    break;
                 case 'Carousel':
                     content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>';
                     break;
@@ -1092,7 +1100,7 @@
             "Date": ["Clock", "DatePicker", "Time", "Calendar", "Schedule", "Organigram", "Timeline"],
             "Navigation": ["Link", "Menu", "MenuBar", "MenuItem"],
             "Feedback": ["ProgressBar", "Spinner", "Loading", "Alert", "Notification", "TrafficLight"],
-            "Media": ["Downloader", "PDFViewer", "ViewMedia", "BarCode", "Draw"],
+            "Media": ["Downloader", "PDFViewer", "ViewMedia", "BarCode", "QRReader", "Draw"],
             "Charts": ["ChartsBar", "ChartsDoughnut", "ChartsLine", "ChartsPie", "ChartsRadar"],
             "Misc": ["Icon", "Avatar", "CreditCard", "OTPValidator", "Catcha"]
             
@@ -1207,6 +1215,7 @@
             "PDFViewer": '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
             "ViewMedia": '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
             "BarCode": '<svg viewBox="0 0 24 24"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14"/></svg>',
+            "QRReader": '<svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 4v2h2v-2h2v-2h-4zm2-4v2h2v-2zM7 7h2v2H7zm10 0h2v2h-2zm-10 10h2v2H7z"/></svg>',
             "Draw": '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
             "ChartsBar": '<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
             "ChartsDoughnut": '<svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>',
@@ -1433,6 +1442,9 @@
                     break;
                 case 'BarCode':
                     content = '<div class="j-component" style="padding:10px; text-align:center; border:1px dashed #fff;"><span style="font-family:monospace; font-size:24px; letter-spacing:2px">||| | || |||</span><br><span>BarCode</span></div>';
+                    break;
+                case 'QRReader':
+                    content = '<div style="width:300px; display:flex; flex-direction:column; align-items:center; gap:10px; padding:15px; border-radius:12px; background:rgba(30,41,59,0.9); border:1px solid rgba(0,255,255,0.4); box-shadow:0 4px 20px rgba(0,0,0,0.5);"><div style="width:100%; display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#0ff; font-weight:bold;"><span>QR SCANNER</span><select disabled style="background:#0f172a; color:#fff; border:1px solid rgba(0,255,255,0.2); font-size:8px; padding:2px; border-radius:4px;"><option>Mock Camera</option></select></div><div style="width:100%; height:180px; position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,255,255,0.3); background:#000; display:flex; align-items:center; justify-content:center;"><div style="font-size:24px; color:rgba(255,255,255,0.4);">📷</div><div style="position:absolute; left:0; right:0; height:2px; background:#ff0055; box-shadow:0 0 8px 1px #ff0055; animation:scan-line-anim 3s infinite linear;"></div></div><button disabled style="width:100%; padding:6px; background:#0284c7; color:#fff; border:none; border-radius:6px; font-weight:bold; font-size:11px;">Start Scanning</button></div>';
                     break;
                 case 'Carousel':
                     content = '<div style="display:flex; gap:10px; overflow:hidden; padding:10px; background:rgba(0,0,0,0.2); border-radius:8px;"><div style="width:150px; height:80px; background:rgba(0,255,255,0.1); border:1px solid rgba(0,255,255,0.3); border-radius:8px; display:flex; align-items:center; justify-content:center;"><span>Slide 1</span></div></div>';
@@ -1921,6 +1933,15 @@
                         c += `\n            .setMaxWidth("${props.maxWidth}")`;
                     if (props.borderRadius)
                         c += `\n            .setBorderRadius("${props.borderRadius}")`;
+                }
+
+                if (type === 'QRReader') {
+                    if (props.width)
+                        c += `\n            .setWidth("${props.width}")`;
+                    if (props.height)
+                        c += `\n            .setHeight("${props.height}")`;
+                    if (props.onScan)
+                        c += `\n            .setOnScan("${props.onScan.replace(/"/g, '\\"')}")`;
                 }
 
                 // Events
