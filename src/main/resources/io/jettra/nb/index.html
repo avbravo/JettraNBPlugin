@@ -1095,7 +1095,7 @@
             "Layout": ["Grid", "Panel", "Board", "Card", "TabView", "Tab", "Modal", "Div", "LayoutDisplay"],
             "Typography": ["Header", "Paragraph", "Span", "Separator", "Divide"],
             "Forms": ["FormGroup", "Label", "TextBox", "TextArea", "Button", "CheckBox", "CheckBoxGroup", "RadioButton", "RadioGroupButton", "ScheduleControl", "SelectOne", "SelectMany", "SelectOneIcon", "ToggleSwitch", "Tree", "TreeItem"],
-            "Data": ["Carousel", "Datatable", "Map"],
+            "Data": ["Carousel", "Datatable", "ViewDataTable", "Map"],
             "File": ["FileUpload", "FolderSelector"],
             "Date": ["Clock", "DatePicker", "Time", "Calendar", "Schedule", "Organigram", "Timeline"],
             "Navigation": ["Link", "Menu", "MenuBar", "MenuItem"],
@@ -1229,6 +1229,7 @@
             "Avatar": '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
             "Carousel": '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M2 12h2M20 12h2M12 12h.01"/></svg>',
             "Datatable": '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',
+            "ViewDataTable": '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/><circle cx="12" cy="12" r="3" fill="#0ff"/></svg>',
             "TabView": '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M8 4v4M13 4v4"/></svg>',
             "Tab": '<svg viewBox="0 0 24 24"><path d="M2 8h20v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z"/><path d="M2 8V4a2 2 0 0 1 2-2h4l2 3h10a2 2 0 0 1 2 2v1"/></svg>',
             "Modal": '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>',
@@ -1505,6 +1506,9 @@
                 case 'TrafficLight':
                     content = '<div class="j-trafficlight" style="display:flex; flex-direction:column; gap:4px; width:24px; padding:6px; background:#111; border-radius:12px; border:2px solid #333; margin:auto;"><div style="width:12px; height:12px; border-radius:50%; background:#500;"></div><div style="width:12px; height:12px; border-radius:50%; background:#550;"></div><div style="width:12px; height:12px; border-radius:50%; background:#050;"></div></div>';
                     break;
+                case 'ViewDataTable':
+                    content = '<div style="border:1px dashed var(--jettra-accent); padding:10px; min-height:80px; border-radius:8px; background:rgba(0,0,0,0.2);"><label style="font-size:11px; color:var(--jettra-accent); margin-bottom:5px; display:block;">@ViewDataTable</label><table style="width:100%; border-collapse:collapse; color:#fff; font-size:10px;"><thead><tr><th style="border-bottom:1px solid #333;">Col 1</th><th style="border-bottom:1px solid #333;">Actions</th></tr></thead><tbody><tr><td>Data</td><td><button style="color:red; background:transparent; border:none;">X</button></td></tr></tbody></table><button style="margin-top:5px; font-size:9px;">+ Add Line</button></div>';
+                    break;
                 case 'Datatable':
                     const headers = p.headers || ['Col 1', 'Col 2'];
                     content = `
@@ -1773,6 +1777,15 @@
                 `;
             }
 
+            if (type === 'ViewDataTable') {
+                html += `
+                    <div class="inspector-row"><span class="inspector-label">Columns (comma separated)</span><input type="text" class="inspector-input" value="${props.columnsList || 'col1'}" onchange="updateProp('columnsList', this.value)"></div>
+                    <div class="inspector-row"><span class="inspector-label">Editable Columns</span><input type="text" class="inspector-input" value="${props.editableCols || ''}" onchange="updateProp('editableCols', this.value)"></div>
+                    <div class="inspector-row"><span class="inspector-label">Source</span><input type="text" class="inspector-input" value="${props.source || ''}" onchange="updateProp('source', this.value)"></div>
+                    <div class="inspector-row"><span class="inspector-label">Method</span><input type="text" class="inspector-input" value="${props.method || ''}" onchange="updateProp('method', this.value)"></div>
+                `;
+            }
+
             if (type === 'Datatable') {
                 const headers = props.headers || ['Col 1', 'Col 2'];
                 html += `
@@ -1839,7 +1852,7 @@
 
             // Visual feedback update
             const type = selectedElement.getAttribute('data-type');
-            if (['TabView', 'Tab', 'CreditCard', 'Panel', 'Div', 'Modal', 'Dialog', 'Datatable', 'FormGroup', 'Center', 'UIComponent', 'Avatar', 'Icon'].includes(type)) {
+            if (['TabView', 'Tab', 'CreditCard', 'Panel', 'Div', 'Modal', 'Dialog', 'Datatable', 'ViewDataTable', 'FormGroup', 'Center', 'UIComponent', 'Avatar', 'Icon'].includes(type)) {
                 refreshComponentPreview(selectedElement);
             } else if (key === 'text' || key === 'level') {
                 if (type === 'Header') {
